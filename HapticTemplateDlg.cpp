@@ -7,11 +7,6 @@
 #include "afxdialogex.h"
 #include <mmsystem.h>
 
-#define PI 3.1415926535
-#define MAX_GRAF_ROWS 40000
-#define NO_JOINTS 3 
-#define SAMPLE_TIME 0.001
-
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif // DEBUG 
@@ -20,7 +15,13 @@ typedef struct {
 				hduVector3Dd position;
 } DeviceStateStruct;
 
+
+const int MAX_GRAF_ROWS = 4000;
 const int grafSkip = 0;
+const int NO_JOINTS = 3;
+const double SAMPLE_TIME = 0.001;
+const double PI = 3.1415926535;
+
 int index = 0;
 double qm[NO_JOINTS] = { 0.0 };
 double taum[NO_JOINTS] = { 0.0 };
@@ -219,7 +220,7 @@ HCURSOR CHapticTemplateDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* pUserData)
+static HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* pUserData)
 {
 				HDenum* pStatus = (HDenum*)pUserData;
 
@@ -231,9 +232,9 @@ HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* pUserData)
 				return HD_CALLBACK_DONE;
 }
 
-HDCallbackCode HDCALLBACK ServoLoopCallback(void* pUserData) {
+static HDCallbackCode HDCALLBACK ServoLoopCallback(void* pUserData) {
 				DeviceStateStruct* pState = static_cast<DeviceStateStruct*>(pUserData);
-				HDdouble torque[3];
+				HDdouble torque[3] = {0.0, 0.0, 0.0};
 				hdBeginFrame(hHDm);
 				hdGetDoublev(HD_CURRENT_JOINT_ANGLES, pState->position);
 
@@ -446,7 +447,7 @@ void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dw
 				static double ti = 0;
 				static double qm_1[NO_JOINTS] = { 0, 90.0 * PI / 180.0, -90.0 * PI / 180.0 };
 				static double sigma[NO_JOINTS] = { 0.0,0.0,0.0 };
-				const double alpha = 9 / 11;
+				const double alpha = 9.0 / 11.0;
 
 				const double qmdf[NO_JOINTS] = { 0, 90.0 * PI / 180.0, -90.0 * PI / 180.0 };
 				const double qmd[NO_JOINTS] = { 0, 0, 0 };
