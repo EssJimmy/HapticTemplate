@@ -1,9 +1,8 @@
-
 // HapticTemplateDlg.cpp : implementation file
 //
-
 #include "pch.h"
 #include "HapticTemplateDlg.h"
+#include "HelperFunctions.h"
 #include "afxdialogex.h"
 #include <mmsystem.h>
 
@@ -15,9 +14,7 @@ typedef struct {
 				hduVector3Dd position;
 } DeviceStateStruct;
 
-
 const int MAX_GRAF_ROWS = 4000;
-const int grafSkip = 0;
 const int NO_JOINTS = 3;
 const double SAMPLE_TIME = 0.001;
 const double PI = 3.1415926535;
@@ -25,7 +22,6 @@ const double PI = 3.1415926535;
 int index = 0;
 double qm[NO_JOINTS] = { 0.0 };
 double taum[NO_JOINTS] = { 0.0 };
-double grafi[MAX_GRAF_ROWS][25] = { 0.0 };
 bool initialized = false, schedulerStarted = false;
 
 HHD hHDm;
@@ -35,10 +31,11 @@ DeviceStateStruct state;
 //Timers
 MMRESULT HomeTimerID;
 MMRESULT SmcTimerID;
-//bool iCTele=true, PID= true;
+
 //Banderas
 bool iCHome = true, Home = true, homeCompletedFlag = true;
 bool iCSmc = true, Smc = true, SmcCompletedFlag = true;
+
 //Bandera para matar toos los timers
 bool CompletedFlag = true;
 
@@ -196,20 +193,6 @@ void CHapticTemplateDlg::OnClose() {
 
 				if (initialized) hdDisableDevice(hHDm);
 
-				FILE* outFile;
-				if (fopen_s(&outFile, "DATOS.m", "w") != 0)
-								MessageBox(_T("No se pudo crear el archivo para graficar"));
-				else {
-								for (int i = 0; i < index; i++) {
-												for (int j = 0; j < 25; j++) {
-																fprintf(outFile, "%f \t", grafi[i][j]);
-												}
-
-												fprintf(outFile, "\n");
-								}
-
-								fclose(outFile);
-				}
 				exit(0);
 }
 
@@ -269,7 +252,6 @@ void CHapticTemplateDlg::OnBnClickedInitialize()
 								MessageBox(_T("Master Device not Found!"));
 								return;
 				}
-
 
 				servoLoopHandle = hdScheduleAsynchronous(ServoLoopCallback, &state, HD_MAX_SCHEDULER_PRIORITY);
 
@@ -360,29 +342,30 @@ void CHapticTemplateDlg::OnBnClickedReed() {
 void CALLBACK CHapticTemplateDlg::HomeTimerProc(UINT uId, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
 				static int grafFlag = 0;
 				static double ti = 0.0, tf = 2.0;
-				double t;
-
-				double bm0[NO_JOINTS] = { 0.0 }, bm3[NO_JOINTS] = { 0.0 }, bm4[NO_JOINTS] = { 0.0 }, bm5[NO_JOINTS] = { 0.0 };
+				static double bm0[NO_JOINTS] = { 0.0 }, bm3[NO_JOINTS] = { 0.0 }, bm4[NO_JOINTS] = { 0.0 }, bm5[NO_JOINTS] = { 0.0 };
+				static double em_1[NO_JOINTS] = { 0.0 };
 
 				const double qmdf[NO_JOINTS] = { 0.0, 90 * PI / 180, -90 * PI / 180 };
-				double qmd[NO_JOINTS] = { 0.0 }, qpmd[3] = { 0.0 };
-
-				double em_1[NO_JOINTS] = { 0.0 }, em[NO_JOINTS] = { 0.0 }, emp[NO_JOINTS] = { 0.0 }, emi[NO_JOINTS] = { 0.0 };
-
 				const double kpm[NO_JOINTS] = { 1.2, 1.2, 1.2 };
 				const double kim[NO_JOINTS] = { 0.2, 0.2, 0.2 };
 				const double kdm[NO_JOINTS] = { 0.1, 0.1, 0.1 };
 
-				CHapticTemplateDlg* pMainWnd = (CHapticTemplateDlg*)AfxGetApp()->m_pMainWnd;
+				double qmd[NO_JOINTS] = { 0.0 }, qpmd[3] = { 0.0 };
+				double em[NO_JOINTS] = {0.0}, emp[NO_JOINTS] = {0.0}, emi[NO_JOINTS] = {0.0};
+				double t = 0.0;
+
 				CString time;
+
+				CHapticTemplateDlg* pMainWnd = (CHapticTemplateDlg*)AfxGetApp()->m_pMainWnd;
+				
 				if (iCHome) {
 								ti = timeGetTime();
 
 								for (int i = 0; i < NO_JOINTS; i++) {
 												bm0[i] = qm[i];
-												bm3[i] = 10 * (qmdf[i] - qm[i]) / pow(tf, 3);
-												bm4[i] = -15 * (qmdf[i] - qm[i]) / pow(tf, 4);
-												bm5[i] = 6 * (qmdf[i] - qm[i]) / pow(tf, 5);
+												bm3[i] = 10.0 * (qmdf[i] - qm[i]) / pow(tf, 3);
+												bm4[i] = -15.0 * (qmdf[i] - qm[i]) / pow(tf, 4);
+												bm5[i] = 6.0 * (qmdf[i] - qm[i]) / pow(tf, 5);
 								}
 
 								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Reaching home position ***"));
@@ -393,6 +376,11 @@ void CALLBACK CHapticTemplateDlg::HomeTimerProc(UINT uId, UINT uMsg, DWORD_PTR d
 								time.Format(_T("%f"), t);
 								pMainWnd->m_time.SetWindowTextW(time);
 				}
+				else {
+								t = tf;
+								time.Format(_T("%f"), t);
+								pMainWnd->m_time.SetWindowTextW(time);
+				}
 
 				if (ti <= 0.001) {
 								std::copy(std::begin(bm0), std::end(bm0), std::begin(qm));
@@ -400,8 +388,8 @@ void CALLBACK CHapticTemplateDlg::HomeTimerProc(UINT uId, UINT uMsg, DWORD_PTR d
 
 				for (int i = 0; i < NO_JOINTS; i++) {
 								if (t <= tf) {
-												qmd[i] = bm5[i] * pow(t, 5) + bm4[i] * pow(t, 4) + bm3[i] * pow(t, 3) + bm0[i];
-												qpmd[i] = 5 * bm5[i] * pow(t, 4) + 4 * bm4[i] * pow(t, 3) + 3 * bm3[i] * pow(t, 2);
+												qmd[i] = bm5[i]*pow(t, 5) + bm4[i]*pow(t, 4) + bm3[i]*pow(t, 3) + bm0[i];
+												qpmd[i] = 5.0*bm5[i]*pow(t, 4) + 4.0*bm4[i]*pow(t, 3) + 3.0*bm3[i]*pow(t, 2);
 								}
 								else {
 												qmd[i] = qmdf[i];
@@ -436,14 +424,15 @@ void CHapticTemplateDlg::OnBnClickedHome() {
 								timeKillEvent(SmcTimerID);
 				}
 
-				HomeTimerID = timeSetEvent(SAMPLE_TIME * 1000, 0, HomeTimerProc, 0, TIME_PERIODIC); //Home timer initialization
+				HomeTimerID = timeSetEvent(SAMPLE_TIME * 1000, 0, HomeTimerProc,(DWORD) 0, TIME_PERIODIC); //Home timer initialization
 }
+
 
 void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
 				CString TIEMPO;
 				static int index = 0;
 
-				static int grafFlag = 0;
+				//static int grafFlag = 0;
 				static double ti = 0;
 				static double qm_1[NO_JOINTS] = { 0, 90.0 * PI / 180.0, -90.0 * PI / 180.0 };
 				static double sigma[NO_JOINTS] = { 0.0,0.0,0.0 };
@@ -551,39 +540,6 @@ void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dw
 								iCSmc = false;
 				}
 
-				if (!grafFlag) {
-								grafi[index][0] = t;
-								grafi[index][1] = qm[0] * 180.0 / PI;
-								grafi[index][2] = qm[1] * 180.0 / PI;
-								grafi[index][3] = qm[2] * 180.0 / PI;
-								grafi[index][4] = dotePos[0] * 180.0 / PI;
-								grafi[index][5] = dotePos[1] * 180.0 / PI;
-								grafi[index][6] = dotePos[2] * 180.0 / PI;
-								grafi[index][7] = ePos[0] * 180.0 / PI;
-								grafi[index][8] = ePos[1] * 180.0 / PI;
-								grafi[index][9] = ePos[2] * 180.0 / PI;
-								grafi[index][10] = qd[0] * 180.0 / PI;
-								grafi[index][11] = qd[1] * 180.0 / PI;
-								grafi[index][12] = qd[2] * 180.0 / PI;
-								grafi[index][13] = abs(taum[0]);
-								grafi[index][14] = abs(taum[1]);
-								grafi[index][15] = abs(taum[2]);
-								grafi[index][16] = dqd[0] * 180.0 / PI;
-								grafi[index][17] = dqd[1] * 180.0 / PI;
-								grafi[index][18] = dqd[2] * 180.0 / PI;
-								grafi[index][19] = vel[0] * 180.0 / PI;
-								grafi[index][20] = vel[1] * 180.0 / PI;
-								grafi[index][21] = vel[2] * 180.0 / PI;
-								grafi[index][22] = dotqr[0];
-								grafi[index][23] = dotqr[1];
-								grafi[index][24] = dotqr[2];
-
-								index++;
-								grafFlag = grafSkip + 1;
-				}
-
-				grafFlag--;
-
 				return;
 }
 
@@ -597,108 +553,3 @@ void CHapticTemplateDlg::OnBnClickedSmc() {
 
 				SmcTimerID = timeSetEvent(SAMPLE_TIME * 1000, 0, SmcTimerProc, 0, TIME_PERIODIC);
 }
-
-/*
-double CHapticTemplateDlg::Sign(double f) {
-				double s = 0;
-				if (f > 0) s = 1;
-				else if (f < 0) s = -1;
-
-				return s;
-}
-
-double CHapticTemplateDlg::RED1(double posq1) {
-				static double u = 0, u1 = 0, dx = 0, x = 0, du = 0;
-				double aux1 = abs(x - posq1), aux2 = 0.5, s = Sign(x - posq1);
-
-				u1 += du * SAMPLE_TIME;
-				x += dx * SAMPLE_TIME;
-				u = u1 - 5.5 * (pow(aux1, aux2)) * s;
-				dx = u;
-				du = -0.7 * s;
-
-				return u;
-}
-
-double CHapticTemplateDlg::RED2(double posq2) {
-				static double u = 0, u1 = 0, x = 1.57;
-				double dx = u, s = Sign(x - posq2);
-
-				u = u1 - 1.5 * (pow(abs(x - posq2), 0.5)) * s;
-				u1 += (-0.8 * s) * SAMPLE_TIME;
-				x += dx * SAMPLE_TIME;
-
-				return u;
-}
-
-double CHapticTemplateDlg::RED3(double posq3) {
-				static double u = 0, u1 = 0, x = -1.57;
-				double dx = u, s = Sign(x - posq3);
-
-				u = u1 - 1.5 * (pow(abs(x - posq3), 0.5)) * s;
-				u1 += (-0.8 * s) * SAMPLE_TIME;
-				x += dx * SAMPLE_TIME;
-
-				return u;
-}
-
-double CHapticTemplateDlg::Levantq1(double pos1) {
-				static double z0 = 0.0;
-				static double z1 = 0.0;
-				static double z2 = 0.0;
-
-				const double L = 3;
-
-				double v0, v1, dz2;
-
-				v0 = -(1.1) * (pow(L, 0.33)) * (pow(abs(z0 - pos1), 0.66)) * (Sign(z0 - pos1)) + z1;
-				v1 = -(1.5) * (pow(L, 0.5)) * (pow(abs(z1 - pos1), 0.5)) * (Sign(z1 - v0)) + z2;
-				dz2 = -2.0 * L * (Sign(z2 - v1));
-
-				z0 += v0 * SAMPLE_TIME;
-				z1 += v1 * SAMPLE_TIME;
-				z2 += dz2 * SAMPLE_TIME;
-
-				return z1;
-}
-
-double CHapticTemplateDlg::Levantq2(double pos2) {
-				const double L = 3.0;
-
-				static double z0 = 1.65;
-				static double z1 = 0.0;
-				static double z2 = 0.0;
-
-				double v0, v1, dz2;
-
-				v0 = -(1.1) * (pow(L, 1 / 3)) * (pow((abs(z0 - pos2)), (2 / 3))) * (Sign(z0 - pos2)) + z1;
-				v1 = -(1.5) * (pow(L, 1 / 2)) * (pow((abs(z1 - pos2)), (1 / 2))) * (Sign(z1 - v0)) + z2;
-				dz2 = -(2.0) * L * (Sign(z2 - v1));
-
-				z0 += v0 * SAMPLE_TIME;
-				z1 += v1 * SAMPLE_TIME;
-				z2 += dz2 * SAMPLE_TIME;
-
-				return z1;
-}
-
-double CHapticTemplateDlg::Levantq3(double pos3) {
-				const double L = 3.0;
-
-				static double z0 = -1.74;
-				static double z1 = 0.0;
-				static double z2 = 0.0;
-
-				double v0, v1, dz2;
-
-				v0 = -(1.1) * (pow(L, 1 / 3)) * (pow((abs(z0 - pos3)), (2 / 3))) * (Sign(z0 - pos3)) + z1;
-				v1 = -(1.5) * (pow(L, 1 / 2)) * (pow((abs(z1 - pos3)), (1 / 2))) * (Sign(z1 - v0)) + z2;
-				dz2 = -(2.0) * L * (Sign(z2 - v1));
-
-				z0 += v0 * SAMPLE_TIME;
-				z1 += v1 * SAMPLE_TIME;
-				z2 += dz2 * SAMPLE_TIME;
-
-				return z1;
-}
-*/

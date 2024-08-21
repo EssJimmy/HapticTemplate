@@ -7,7 +7,6 @@
 #include "framework.h"
 #include "stdafx.h"
 #include "HapticTemplate.h"
-#include "HelperFunctions.h"
 #include <afxwin.h>
 #include <HD/hd.h>
 #include <HDU/hduError.h>
