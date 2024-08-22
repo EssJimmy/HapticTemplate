@@ -1,4 +1,6 @@
-#include <cmath>
+// contains helper functions for trajectory calculations
+// it places them in HelperFunctions.cpp instead of in
+// the main code
 
 class HelperFunctions {
 public:

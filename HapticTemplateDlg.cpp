@@ -1,8 +1,8 @@
 // HapticTemplateDlg.cpp : implementation file
-//
-#include "pch.h"
+// TODO: revise trajectory graphing so that it works and no longer throws memory exceptions
 #include "HapticTemplateDlg.h"
 #include "HelperFunctions.h"
+#include "Controllers.h"
 #include "afxdialogex.h"
 #include <mmsystem.h>
 
@@ -10,20 +10,24 @@
 #define new DEBUG_NEW
 #endif // DEBUG 
 
+// Value inside needs to store diferent values
+// but struct itself needs to be a pointer, thus needing
+// this weird arangement
 typedef struct {
 				hduVector3Dd position;
 } DeviceStateStruct;
 
+// constant values for calculations and other stuff
 const int MAX_GRAF_ROWS = 4000;
 const int NO_JOINTS = 3;
 const double SAMPLE_TIME = 0.001;
 const double PI = 3.1415926535;
 
-int index = 0;
+// non constant global values needed in several functions
 double qm[NO_JOINTS] = { 0.0 };
-double taum[NO_JOINTS] = { 0.0 };
-bool initialized = false, schedulerStarted = false;
+std::vector<double> taum(NO_JOINTS);
 
+// haptic robot stuff
 HHD hHDm;
 HDSchedulerHandle servoLoopHandle;
 DeviceStateStruct state;
@@ -32,12 +36,11 @@ DeviceStateStruct state;
 MMRESULT HomeTimerID;
 MMRESULT SmcTimerID;
 
-//Banderas
-bool iCHome = true, Home = true, homeCompletedFlag = true;
-bool iCSmc = true, Smc = true, SmcCompletedFlag = true;
-
-//Bandera para matar toos los timers
-bool CompletedFlag = true;
+//flags
+bool initialized = false, schedulerStarted = false;
+bool iCHome = true, homeFlag = true, homeCompletedFlag = true;
+bool iCSmc = true, smcFlag = true, smcCompletedFlag = true;
+bool completed = true;
 
 // CAboutDlg dialog used for App About
 class CAboutDlg : public CDialogEx
@@ -180,9 +183,9 @@ void CHapticTemplateDlg::OnPaint()
 
 void CHapticTemplateDlg::OnClose() {
 				timeEndPeriod(1);
-				if (!Smc || !Home) {
+				if (!smcFlag || !homeFlag) {
 								timeKillEvent(SmcTimerID);
-								CompletedFlag = Smc = Home = true;
+								completed = smcFlag = homeFlag = true;
 				}
 
 				if (initialized && hdIsEnabled(HD_FORCE_OUTPUT))
@@ -203,6 +206,8 @@ HCURSOR CHapticTemplateDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+// Callback to calibration parameters stablished by the drivers
 static HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* pUserData)
 {
 				HDenum* pStatus = (HDenum*)pUserData;
@@ -215,6 +220,8 @@ static HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* pUserData)
 				return HD_CALLBACK_DONE;
 }
 
+// How the robot moves, by using a standard defined torque and the taum calculated in the
+// SmcTimerProc method
 static HDCallbackCode HDCALLBACK ServoLoopCallback(void* pUserData) {
 				DeviceStateStruct* pState = static_cast<DeviceStateStruct*>(pUserData);
 				HDdouble torque[3] = {0.0, 0.0, 0.0};
@@ -239,13 +246,12 @@ static HDCallbackCode HDCALLBACK ServoLoopCallback(void* pUserData) {
 				return HD_CALLBACK_CONTINUE;
 }
 
-
+// Creates the connection to the robot, can be used to create a connection to a slave robot
+// TODO: work in the slave robot connecction
 void CHapticTemplateDlg::OnBnClickedInitialize()
 {
-				// TODO: Add your control notification handler code here
 				HDErrorInfo error;
 				HDstring MasterRobot = "Default Device";
-				//HDstring SlaveRobot = "p2";
 				hHDm = hdInitDevice(MasterRobot);
 				if (HD_DEVICE_ERROR(error = hdGetError()))
 				{
@@ -286,9 +292,9 @@ void CHapticTemplateDlg::OnBnClickedInitialize()
 				timeBeginPeriod(1);
 }
 
+// Assigns the calibration parameters stablished in the driver to the robot
 void CHapticTemplateDlg::OnBnClickedCalib()
 {
-				// TODO: Add your control notification handler code here
 				if (initialized)
 				{
 								int supportedCalibrationStyles;
@@ -326,7 +332,9 @@ void CHapticTemplateDlg::OnBnClickedCalib()
 				}
 }
 
-
+// Reads the encoder values and displays it
+// TODO: make it an async function so that there's no need to keep clicking
+// the button
 void CHapticTemplateDlg::OnBnClickedReed() {
 				CString text[3];
 				text[0].Format(L"%.3f", qm[0] * 180.0 / PI);
@@ -339,6 +347,8 @@ void CHapticTemplateDlg::OnBnClickedReed() {
 				return;
 }
 
+// Returns to the home position for the robot, uses a small PID code to do so
+// Can be adjusted to return faster to home but, so far the convergence is right
 void CALLBACK CHapticTemplateDlg::HomeTimerProc(UINT uId, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
 				static int grafFlag = 0;
 				static double ti = 0.0, tf = 2.0;
@@ -405,16 +415,21 @@ void CALLBACK CHapticTemplateDlg::HomeTimerProc(UINT uId, UINT uMsg, DWORD_PTR d
 								taum[i] = -kpm[i] * em[i] - kim[i] * emi[i] - kdm[i] * emp[i];
 				}
 
-				if (t > tf && CompletedFlag) {
+				if (t > tf && completed) {
 								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Home position ***"));
-								CompletedFlag = false;
+								completed = false;
 				}
 
 				if (iCHome) iCHome = false;
 
+				// freeing memory back to the system
+				std::free(qmd); std::free(qpmd); std::free(em); std::free(emi);
+
 				return;
 }
 
+// Calls the above function with a timer to reach home 
+// position in a certain time
 void CHapticTemplateDlg::OnBnClickedHome() {
 				if (!iCHome) {
 								timeKillEvent(HomeTimerID);
@@ -427,47 +442,12 @@ void CHapticTemplateDlg::OnBnClickedHome() {
 				HomeTimerID = timeSetEvent(SAMPLE_TIME * 1000, 0, HomeTimerProc,(DWORD) 0, TIME_PERIODIC); //Home timer initialization
 }
 
-
+// Main function for movement, calculates the different components for the given control, despite parra-vega controller being
+// added, it doesnt work, i'll add it later
 void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
-				CString TIEMPO;
-				static int index = 0;
-
-				//static int grafFlag = 0;
-				static double ti = 0;
-				static double qm_1[NO_JOINTS] = { 0, 90.0 * PI / 180.0, -90.0 * PI / 180.0 };
-				static double sigma[NO_JOINTS] = { 0.0,0.0,0.0 };
-				const double alpha = 9.0 / 11.0;
-
-				const double qmdf[NO_JOINTS] = { 0, 90.0 * PI / 180.0, -90.0 * PI / 180.0 };
-				const double qmd[NO_JOINTS] = { 0, 0, 0 };
-				const double lambdaZero[NO_JOINTS] = { 2, 2, 2 };
-				const double lambdaOne[NO_JOINTS] = { 1.5, 1.5, 1.5 };
-				const double lambdaTwo[NO_JOINTS] = { 1.1, 1.1, 1.1 };
-
-				double dqm[NO_JOINTS] = { 0, 0, 0 };
-				double t;
-				double qd1 = 0;
-				double qd2 = 0;
-				double qd3 = 0;
-				double dqd1 = 0;
-				double dqd2 = 0;
-				double dqd3 = 0;
-
-				//ganancias PId
-				const double kp[NO_JOINTS] = { 1.5,3.5,2.8 };	//Ganancias Proporcional
-				const double ki[NO_JOINTS] = { 0.2,0.25,0.25 }; 	//Ganancias Integral   
-				const double kd[NO_JOINTS] = { 0.1,0.2,0.2 };
-
 				double dotePos[NO_JOINTS] = { 0.0,0.0,0.0 };
 				double ePos[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double sq[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double dotqr[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double s[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double qd[NO_JOINTS] = { 0.0,0.0,0.0 };
 				double dqd[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double dotsigma[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double ePosi[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double vel[NO_JOINTS] = { 0.0, 0.0, 0.0 };
 
 				//ganancias parra-vega
 				const double gammaPV[NO_JOINTS] = { 0.4, 0.4, 0.4 };
@@ -482,63 +462,10 @@ void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dw
 				double srPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
 				double sqPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
 
-				const double K1[NO_JOINTS] = { 11, 16, 12 };
-				const double K2[NO_JOINTS] = { 0.05, 0.08, 0.06 };
-				const double K3[NO_JOINTS] = { 0.05, 0.05, 0.05 };
-				const double K4[NO_JOINTS] = { 0.16, 0.28, 0.26 };
-				const double KV[NO_JOINTS] = { 0.08, 0.08, 0.08 };
-
 				CHapticTemplateDlg* pMainWnd = (CHapticTemplateDlg*)AfxGetApp()->m_pMainWnd;
 
-				if (iCSmc) {
-								ti = timeGetTime();
-								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Control in progress ***"));
-
-								std::copy(std::begin(qm), std::end(qm), std::begin(qm_1));
-				}
-
-				t = (timeGetTime() - ti) / 1000.0;
-				TIEMPO.Format(_T("%f"), t);
-				pMainWnd->m_time.SetWindowTextW(TIEMPO);
-
-				vel[0] = HelperFunctions::RED1(qm[0], SAMPLE_TIME);
-				vel[1] = HelperFunctions::RED2(qm[1], SAMPLE_TIME);
-				vel[2] = HelperFunctions::RED3(qm[2], SAMPLE_TIME);
-
-				qd[0] = -0.4 + 0.4 * cos(3 * t);
-				qd[1] = 1.37 + 0.2 * cos(t);
-				qd[2] = -1.37 - 0.2 * cos(2 * t);
-
-				dqd[0] = -0.12 * sin(3 * t);
-				dqd[1] = -0.2 * sin(t);
-				dqd[2] = 0.4 * sin(2 * t);
-
-				for (int i = 0; i < NO_JOINTS; i++) {
-								//PID normal
-								ePos[i] = qm[i] - qd[i];
-								dotePos[i] = vel[i] - dqd[i];
-								sq[i] = dotePos[i] + K1[i] * HelperFunctions::Sign(ePos[i]) * (pow((abs(ePos[i])), alpha));
-								dotqr[i] = dqd[i] - K1[i] * HelperFunctions::Sign(ePos[i]) * pow((abs(ePos[i])), alpha) - K2[i] * sigma[i];
-								s[i] = dqm[i] - dotqr[i];
-								dotsigma[i] = K3[i] * sq[i] + HelperFunctions::Sign(sq[i]);
-								sigma[i] += dotsigma[i] * SAMPLE_TIME;
-								ePosi[i] += ePos[i] * SAMPLE_TIME;
-
-								taum[i] = -kp[i] * ePos[i] - ki[i] * ePosi[i] - kd[i] * dotePos[i];
-
-								//parra-vega
-								sigmaPV[i] += dotsigmaPV[i] * SAMPLE_TIME;
-								dotqrPV[i] = dqd[i] - alphaPV[i] * ePos[i] + sdPV[i] - gammaPV[i] * sigmaPV[i];
-								dotsigmaPV[i] = HelperFunctions::Sign(sqPV[i]);
-								sPV[i] = dotePos[i] + alphaPV[i] * ePos[i];
-								sqPV[i] = sPV[i];
-								srPV[i] = sqPV[i] + gammaPV[i] * sigmaPV[i];
-				}
-
-				if (iCSmc) {
-								index = 0;
-								iCSmc = false;
-				}
+				taum = Controllers::PIDController(PI, SAMPLE_TIME, qm, pMainWnd, iCSmc);
+				//taum = Controllers::ParraVegaController(PI, SAMPLE_TIME, qm, pMainWnd, iCSmc);
 
 				return;
 }
@@ -548,7 +475,7 @@ void CHapticTemplateDlg::OnBnClickedSmc() {
 
 				if (!iCSmc) {
 								timeKillEvent(SmcTimerID);
-								SmcCompletedFlag = iCSmc = true;
+								smcCompletedFlag = iCSmc = true;
 				}
 
 				SmcTimerID = timeSetEvent(SAMPLE_TIME * 1000, 0, SmcTimerProc, 0, TIME_PERIODIC);

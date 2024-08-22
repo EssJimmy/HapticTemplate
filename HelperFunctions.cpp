@@ -1,5 +1,8 @@
+// HelperFunctions.h implementation
+
 #include "pch.h"
 #include "HelperFunctions.h"
+#include <cmath>
 
 double HelperFunctions::Sign(double f) {
 				double s = 0;

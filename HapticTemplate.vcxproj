@@ -196,6 +196,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Controllers.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HapticTemplate.h" />
     <ClInclude Include="HapticTemplateDlg.h" />
@@ -206,6 +207,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Controllers.cpp" />
     <ClCompile Include="HapticTemplate.cpp" />
     <ClCompile Include="HapticTemplateDlg.cpp" />
     <ClCompile Include="HelperFunctions.cpp" />
