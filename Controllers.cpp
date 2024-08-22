@@ -136,6 +136,7 @@ std::vector<double> Controllers::ParraVegaController(const double PI, const doub
 								taum[i] = -kdPV[i] * srPV[i];
 				}
 
+				std::free(dotePos); std::free(ePos); std::free(dqd);
 				std::free(dotqrPV); std::free(dotsigmaPV); std::free(sPV); 
 				std::free(sdPV); std::free(srPV); std::free(sqPV);
 
