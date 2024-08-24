@@ -41,7 +41,7 @@ Esperen un poco de tiempo a que el robot llegue a *Home* antes de darle al botó
 **¡Lo lograrón! Happy hacking! :)**
 
 ## Usar el *template* para crear nuevo código
-Si no quieren usar exclusivamente mi código, pueden crear un template utilizando el botón de la esquina superior derecha que dice *Use this template $\rightarrow$ Create a repository*, y crear sus propios códigos a su gusto. Eviten copiar el *branch* de *development*, en ese hay cosas que no he probado todavía y no son seguras de cargar al robot.
+Si no quieren usar exclusivamente mi código, pueden crear un template utilizando el botón de la esquina superior derecha que dice *Use this template* $\rightarrow$ *Create a repository*, y crear sus propios códigos a su gusto. Eviten copiar el *branch* de *development*, en ese hay cosas que no he probado todavía y no son seguras de cargar al robot.
 
 # Código
 El código central a modificar se encuentra dentro de los archivos `HapticTemplateDlg.cpp`, `HelperFunctions.cpp`. Dentro del primer archivo se encuentra el código de llamada del controlador del robot, el único método para editar que control se está utilizando es `CHapticTemplateDlg::SmcTimerProc()`, los demás son necesarios para el funcionamiento de la interfaz gráfica, inicialización, calibración, entre otros. Dentro de `HelperFunctions.cpp` se encuentran funciones auxiliares para el cálculo de diferentes valores necesarios, como derivadas de Levant, etcétera. Tl;dr: si van a cambiar el controlador, muevan `SmcTimerProc()`, y auxiliense con `HelperFunctions.cpp`.
