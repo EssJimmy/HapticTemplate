@@ -445,23 +445,6 @@ void CHapticTemplateDlg::OnBnClickedHome() {
 // Main function for movement, calculates the different components for the given control, despite parra-vega controller being
 // added, it doesnt work, i'll add it later
 void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
-				double dotePos[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double ePos[NO_JOINTS] = { 0.0,0.0,0.0 };
-				double dqd[NO_JOINTS] = { 0.0,0.0,0.0 };
-
-				//ganancias parra-vega
-				const double gammaPV[NO_JOINTS] = { 0.4, 0.4, 0.4 };
-				const double alphaPV[NO_JOINTS] = { 14.0, 14.0, 14.0 };
-				const double kdPV[NO_JOINTS] = { 0.35, 0.35, 0.35 };
-
-				static double sigmaPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double dotqrPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double dotsigmaPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double sPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double sdPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double srPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-				double sqPV[NO_JOINTS] = { 0.0, 0.0, 0.0 };
-
 				CHapticTemplateDlg* pMainWnd = (CHapticTemplateDlg*)AfxGetApp()->m_pMainWnd;
 
 				taum = Controllers::PIDController(PI, SAMPLE_TIME, qm, pMainWnd, iCSmc);
