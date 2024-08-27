@@ -5,9 +5,12 @@
 
 class Controllers {
 public:
-    static std::vector<double> Controllers::PIDController(const double PI, const double SAMPLE_TIME, double *qm, 
-        CHapticTemplateDlg *pMainWnd, bool iCSmc);
+    static std::vector<double> PIDController(const double PI, const double SAMPLE_TIME, 
+        CHapticTemplateDlg *pMainWnd, bool iCSmc, double* qm);
 
-    static std::vector<double> Controllers::ParraVegaController(const double PI, const double SAMPLE_TIME,
+    static std::vector<double> ParraVegaController(const double PI, const double SAMPLE_TIME,
         CHapticTemplateDlg* pMainWnd, bool iCSmc);
+
+    static std::vector<double> NLController(const double PI, const double SAMPLE_TIME,
+        CHapticTemplateDlg* pMainWnd, bool iCSmc, double *qm);
 };

@@ -259,6 +259,7 @@ void CHapticTemplateDlg::OnBnClickedInitialize()
 								return;
 				}
 
+				// call to servoloopcallback which handles movement according to a given taum and torque
 				servoLoopHandle = hdScheduleAsynchronous(ServoLoopCallback, &state, HD_MAX_SCHEDULER_PRIORITY);
 
 				hdMakeCurrentDevice(hHDm);
@@ -444,11 +445,13 @@ void CHapticTemplateDlg::OnBnClickedHome() {
 
 // Main function for movement, calculates the different components for the given control, despite parra-vega controller being
 // added, it doesnt work, i'll add it later
+// 26-08-24 parra-vega should work now, made some adjustments
 void CALLBACK CHapticTemplateDlg::SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
 				CHapticTemplateDlg* pMainWnd = (CHapticTemplateDlg*)AfxGetApp()->m_pMainWnd;
 
-				taum = Controllers::PIDController(PI, SAMPLE_TIME, qm, pMainWnd, iCSmc);
+				taum = Controllers::PIDController(PI, SAMPLE_TIME, pMainWnd, iCSmc, qm);
 				//taum = Controllers::ParraVegaController(PI, SAMPLE_TIME, qm, pMainWnd, iCSmc);
+				//taum = Controllers::NLController(PI, SAMPLE_TIME, pMainWnd, iCSmc, qm);
 
 				return;
 }
