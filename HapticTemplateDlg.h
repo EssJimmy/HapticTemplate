@@ -7,9 +7,8 @@
 #include "framework.h"
 #include "stdafx.h"
 #include "HapticTemplate.h"
+#include <vector>
 #include <afxwin.h>
-#include <HD/hd.h>
-#include <HDU/hduError.h>
 #include <HDU/hduVector.h>
 #include <GL/glut.h>
 
@@ -18,7 +17,7 @@ class CHapticTemplateDlg : public CDialogEx
 {
 // Construction
 public:
-	CHapticTemplateDlg(CWnd* pParent = nullptr);	// standard constructor
+	CHapticTemplateDlg(CWnd* p_parent = nullptr);	// standard constructor
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -26,7 +25,7 @@ public:
 #endif
 
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
+void DoDataExchange(CDataExchange* p_dx) override;	// DDX/DDV support
 
 
 // Implementation
@@ -35,15 +34,16 @@ protected:
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
-	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
+	afx_msg void OnSysCommand(UINT n_id, LPARAM l_param);
 	afx_msg void OnPaint();
 	afx_msg void OnClose();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 
 public:
-    static void CALLBACK HomeTimerProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
-				static void CALLBACK SmcTimerProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
+    static void CALLBACK home_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2);
+				static void CALLBACK smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2);
+				static void write_data_to_file(std::vector<double>& graph_data);
 
 				CEdit m_time;
 				CEdit m_Encoder1;
@@ -51,9 +51,9 @@ public:
 				CEdit m_Encoder3;
 				CEdit m_statusTextBox;
 
-				afx_msg void OnBnClickedInitialize();
-				afx_msg void OnBnClickedCalib();
-				afx_msg void OnBnClickedReed();
-				afx_msg void OnBnClickedHome();
-				afx_msg void OnBnClickedSmc();
+				afx_msg void on_bn_clicked_initialize();
+				afx_msg void on_bn_clicked_calibration();
+				afx_msg void on_bn_clicked_read();
+				afx_msg void on_bn_clicked_home();
+				afx_msg void on_bn_clicked_smc();
 };
