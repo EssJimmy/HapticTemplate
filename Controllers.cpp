@@ -61,7 +61,7 @@ std::vector<std::vector<double>> controllers::pid_controller(const double pi, co
 				return tau_graph_data;
 }
 
-std::vector<double> controllers::parra_vega_controller(const double pi, const double sample_time, const bool i_c_smc,
+std::vector<std::vector<double>> controllers::parra_vega_controller(const double pi, const double sample_time, const bool i_c_smc,
 				static double ti) {
     constexpr double gamma_pv[no_joints] = { 0.4, 0.4, 0.4 };
     constexpr double alpha_pv[no_joints] = { 14.0, 14.0, 14.0 };
@@ -100,7 +100,9 @@ std::vector<double> controllers::parra_vega_controller(const double pi, const do
 								tau[i] = -kd_pv[i] * sr_pv[i];
 				}
 
-				return tau;
+				std::vector<std::vector<double>> tau_graph_data = { tau, std::vector<double>(25) };
+
+				return tau_graph_data;
 }
 
 std::vector<std::vector<double>> controllers::nl_controller(const double pi, const double sample_time,

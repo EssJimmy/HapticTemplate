@@ -8,7 +8,7 @@ public:
     static std::vector<std::vector<double>> pid_controller(const double pi, const double sample_time, bool i_c_smc,
         double* qm, static double ti);
 
-    static std::vector<double> parra_vega_controller(const double pi, const double sample_time, bool i_c_smc,
+    static std::vector<std::vector<double>> parra_vega_controller(const double pi, const double sample_time, bool i_c_smc,
         static double ti);
 
     static std::vector<std::vector<double>> nl_controller(const double pi, const double sample_time, bool i_c_smc,
