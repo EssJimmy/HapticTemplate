@@ -44,6 +44,7 @@ public:
     static void CALLBACK home_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2);
 				static void CALLBACK smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2);
 				static void write_data_to_file(std::vector<double>& graph_data);
+    static void open_graph_window();
 
 				CEdit m_time;
 				CEdit m_Encoder1;

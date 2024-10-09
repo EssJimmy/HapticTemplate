@@ -11,6 +11,7 @@
 #include <chrono>
 #include <ctime>
 #include <string>
+#include <QHHeadersWin32.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -32,8 +33,9 @@ constexpr double pi = 3.1415926535;
 double qm[no_joints] = { 0.0 };
 std::vector<double> taum(no_joints, 0.0);
 
+
+// graph stuff
 // file for saving data
-std::string file_name = "data";
 std::time_t end_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 struct tm datetime;
 auto err = localtime_s(&datetime, &end_time);
@@ -42,6 +44,9 @@ auto x = strftime(output, sizeof output, "%Y%b%d-%H%M%S", &datetime);
 char buffer[50];
 auto n = sprintf_s(buffer, "./graph_data/data%s.csv", output);
 std::ofstream graph_file(buffer);
+// needed for graphing
+QHWin32* qh;
+TriMesh* cow = new TriMesh("C:\\OpenHaptics\\Developer\\3.5.0\\Quickhaptics\\examples\\SpongyCow\\SpongyCowWin32\\Models\\cow.3DS");
 
 // haptic robot stuff
 HHD hHDm;
@@ -56,7 +61,7 @@ MMRESULT smc_timer_id;
 bool initialized = false, scheduler_started = false;
 bool i_c_home = true, home_flag = true, home_completed_flag = true;
 bool i_c_smc = true, smc_flag = true, smc_completed_flag = true;
-bool completed = true;
+bool completed = true; bool graph_opened = false;
 
 // CAboutDlg dialog used for App About
 class CAboutDlg : public CDialogEx
@@ -263,10 +268,24 @@ static HDCallbackCode HDCALLBACK ServoLoopCallback(void* p_user_data) {
 				return HD_CALLBACK_CONTINUE;
 }
 
+void CHapticTemplateDlg::open_graph_window()
+{
+				if (!graph_opened) {
+        qh = new QHWin32();	// Create a new QuickHaptics window
+								graph_opened = true;
+								qh->hapticWindow(false);
+								qh->setWindowTitle("Position graph");
+								cow->setFriction();
+								qh->tell(cow);
+				}
+}
+
 // Creates the connection to the robot, can be used to create a connection to a slave robot
 // TODO: work in the slave robot connection
 void CHapticTemplateDlg::on_bn_clicked_initialize()
 {
+    open_graph_window();
+				
 				HDErrorInfo error;
     const HDstring master_robot = "Default Device";
 				hHDm = hdInitDevice(master_robot);
@@ -308,6 +327,8 @@ void CHapticTemplateDlg::on_bn_clicked_initialize()
 				}
 
 				timeBeginPeriod(1);
+
+
 }
 
 // Assigns the calibration parameters established in the driver to the robot
@@ -477,7 +498,7 @@ void CALLBACK CHapticTemplateDlg::smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PT
 								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Control in progress ***"));
 				}
 
-				time.Format(_T("%f"), (timeGetTime() - ti) / 1000.0);
+				time.Format(_T("%f"), (timeGetTime() - ti)/1000);
 				pMainWnd->m_time.SetWindowTextW(time);
 
 				std::vector<std::vector<double>> aux = controllers::pid_controller(pi, sample_time, i_c_smc, qm, ti);
@@ -486,6 +507,7 @@ void CALLBACK CHapticTemplateDlg::smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PT
 
 				std::copy(aux[0].begin(), aux[0].end(), taum.begin());
 				write_data_to_file(aux[1]);
+				
 				aux.swap(std::vector<std::vector<double>>());
 
 				if (i_c_smc) i_c_smc = false;
