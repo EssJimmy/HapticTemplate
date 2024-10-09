@@ -1,5 +1,5 @@
 // HapticTemplateDlg.cpp : implementation file
-// TODO: memory revised leaks were reduced but now need to rework graphing method
+// TODO: revise controllers and see if they work
 #include "pch.h"
 #include "HapticTemplateDlg.h"
 #include "Controllers.h"
@@ -33,7 +33,6 @@ double qm[no_joints] = { 0.0 };
 std::vector<double> taum(no_joints, 0.0);
 
 // file for saving data
-std::string file_name = "data";
 std::time_t end_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 struct tm datetime;
 auto err = localtime_s(&datetime, &end_time);
@@ -349,8 +348,7 @@ void CHapticTemplateDlg::on_bn_clicked_calibration()
 }
 
 // Reads the encoder values and displays it
-// TODO: make it an async function so that there's no need to keep clicking
-// the button
+// TODO: make it an async function so that there's no need to keep clicking the button
 void CHapticTemplateDlg::on_bn_clicked_read() {
 				CString text[3];
 				text[0].Format(L"%.3f", qm[0] * 180.0 / pi);
@@ -365,7 +363,7 @@ void CHapticTemplateDlg::on_bn_clicked_read() {
 
 // Returns to the home position for the robot, uses a small PID code to do so
 // Can be adjusted to return faster to home but, so far the convergence is right
-void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT uId, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2) {
+void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2) {
 				static double ti = 0.0, tf = 2.0;
 				static double bm0[no_joints] = { 0.0 }, bm3[no_joints] = { 0.0 }, bm4[no_joints] = { 0.0 }, bm5[no_joints] = { 0.0 };
 				static double em_1[no_joints] = { 0.0 };
@@ -452,9 +450,9 @@ void CHapticTemplateDlg::on_bn_clicked_home() {
 				home_timer_id = timeSetEvent(static_cast<UINT>(sample_time * 1000.0), 0, home_timer_proc, 0, TIME_PERIODIC); //Home timer initialization
 }
 
-void CHapticTemplateDlg::write_data_to_file(std::vector<double>& graph_data)
+void CHapticTemplateDlg::write_data_to_file(const std::vector<double>& graph_data)
 {
-    for(const auto d: graph_data)
+    for(const auto d&: graph_data)
     {
 								graph_file << d << ",";
     }
@@ -464,8 +462,7 @@ void CHapticTemplateDlg::write_data_to_file(std::vector<double>& graph_data)
 
 // Main function for movement, calculates the different components for the given control, despite parra-vega controller being
 // added, it doesn't work, I'll add it later
-// 26-08-24 parra-vega should work now, made some adjustments
-// 30-08-24 while they calculate values correctly, still have to figure out a way to make the work
+// works properly now, the other two controllers are yet to work
 void CALLBACK CHapticTemplateDlg::smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2) {
 				auto pMainWnd = dynamic_cast<CHapticTemplateDlg*>(AfxGetApp()->m_pMainWnd);
 				CString time;
@@ -481,8 +478,8 @@ void CALLBACK CHapticTemplateDlg::smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PT
 				pMainWnd->m_time.SetWindowTextW(time);
 
 				std::vector<std::vector<double>> aux = controllers::pid_controller(pi, sample_time, i_c_smc, qm, ti);
-				//std::vector<double> aux = Controllers::ParraVegaController(PI, SAMPLE_TIME, iCSmc, ti);
-				//std::vector<double> aux = Controllers::NLController(PI, SAMPLE_TIME, pMainWnd, qm, ti);
+				//std::vector<std::vector<double>> aux = controllers::parra_vega_controller(pi, sample_time, i_c_smc, ti);
+				//std::vector<std::vector<double>> aux = controllers::nl_controller(pi, sample_time, i_c_smc, qm, ti);
 
 				std::copy(aux[0].begin(), aux[0].end(), taum.begin());
 				write_data_to_file(aux[1]);
