@@ -13,13 +13,12 @@ std::vector<std::vector<double>> controllers::pid_controller(const double pi, co
 				constexpr double dot_qr[no_joints] = { 0.0,0.0,0.0 };
 				constexpr double alpha = 9.0 / 11.0;
 
-				constexpr double kp[no_joints] = { 1.5,3.5,2.8 };
-				constexpr double ki[no_joints] = { 0.2,0.25,0.25 };
-				constexpr double kd[no_joints] = { 0.1,0.2,0.2 };
+				constexpr double kp[no_joints] = { 1.1,1.2,2.0 };
+				constexpr double ki[no_joints] = { 0.2,0.2,0.2 };
+				constexpr double kd[no_joints] = { 0.1,0.2,0.2 }; // dont touch this
 
 				double dote_pos[no_joints] = { 0.0,0.0,0.0 };
 				double e_pos[no_joints] = { 0.0,0.0,0.0 };
-				double sq[no_joints] = { 0.0,0.0,0.0 };
 				double qd[no_joints] = { 0.0,0.0,0.0 };
 				double dqd[no_joints] = { 0.0,0.0,0.0 };
 				double e_pos_i[no_joints] = { 0.0, 0.0, 0.0 };
@@ -49,7 +48,6 @@ std::vector<std::vector<double>> controllers::pid_controller(const double pi, co
 				for (int i = 0; i < no_joints; i++) {
 								e_pos[i] = qm[i] - qd[i];
 								dote_pos[i] = vel[i] - dqd[i];
-								sq[i] = dote_pos[i] + k1[i] * HelperFunctions::Sign(e_pos[i]) * (pow((abs(e_pos[i])), alpha));
 								e_pos_i[i] += e_pos[i] * sample_time;
 
 								tau[i] = -kp[i] * e_pos[i] - ki[i] * e_pos_i[i] - kd[i] * dote_pos[i];
