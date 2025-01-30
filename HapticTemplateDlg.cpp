@@ -368,12 +368,12 @@ void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_P
 				static double bm0[no_joints] = { 0.0 }, bm3[no_joints] = { 0.0 }, bm4[no_joints] = { 0.0 }, bm5[no_joints] = { 0.0 };
 				static double em_1[no_joints] = { 0.0 };
 
-				constexpr double qmdf[no_joints] = { 0.0, 90 * pi / 180, -90 * pi / 180 };
+    constexpr double qmdf[no_joints] = { 0.0 * pi / 180.0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 }; // responsible for home position expressed in radians
 				constexpr double kpm[no_joints] = { 1.2, 1.2, 1.2 };
 				constexpr double kim[no_joints] = { 0.2, 0.2, 0.2 };
 				constexpr double kdm[no_joints] = { 0.1, 0.1, 0.1 };
 
-				double qmd[no_joints] = { 0.0 }, qpmd[no_joints] = {0.0};
+				double qmd[no_joints] = { 0.0 }; // qpmd[no_joints] = {0.0};
 				double em[no_joints] = {0.0}, emp[no_joints] = {0.0}, emi[no_joints] = {0.0};
 				double t = 0.0;
 
@@ -411,8 +411,8 @@ void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_P
 
 				for (int i = 0; i < no_joints; i++) {
 								if (t <= tf) {
-												qmd[i] = bm5[i]*pow(t, 5) + bm4[i]*pow(t, 4) + bm3[i]*pow(t, 3) + bm0[i];
-												qpmd[i] = 5.0*bm5[i]*pow(t, 4) + 4.0*bm4[i]*pow(t, 3) + 3.0*bm3[i]*pow(t, 2);
+            qmd[i] = bm5[i] * pow(t, 5) + bm4[i] * pow(t, 4) + bm3[i] * pow(t, 3) + bm0[i]; // real position expressed in a polynomial
+												//qpmd[i] = 5.0*bm5[i]*pow(t, 4) + 4.0*bm4[i]*pow(t, 3) + 3.0*bm3[i]*pow(t, 2);
 								}
 								else {
 												qmd[i] = qmdf[i];
@@ -420,12 +420,13 @@ void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_P
 				}
 
 				for (int i = 0; i < no_joints; i++) {
-								em[i] = qm[i] - qmd[i];
-								emi[i] += em[i] * sample_time;
-								em_1[i] = em[i];
-								emp[i] = (em[i] - em_1[i]) / sample_time;
+								em[i] = qm[i] - qmd[i]; // position error calculated
+        emi[i] += em[i] * sample_time; // integral of the error
+        em_1[i] = em[i]; //previous error
+        emp[i] = (em[i] - em_1[i]) / sample_time; // derivative of the error
 
-								taum[i] = -kpm[i] * em[i] - kim[i] * emi[i] - kdm[i] * emp[i];
+								taum[i] = -kpm[i] * em[i] - kim[i] * emi[i];
+								
 				}
 
 				if (t > tf && completed) {
@@ -452,7 +453,7 @@ void CHapticTemplateDlg::on_bn_clicked_home() {
 
 void CHapticTemplateDlg::write_data_to_file(const std::vector<double>& graph_data)
 {
-    for(const auto d&: graph_data)
+    for(const auto& d: graph_data)
     {
 								graph_file << d << ",";
     }
