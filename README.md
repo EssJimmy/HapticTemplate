@@ -9,6 +9,7 @@ Este *template* provee una forma sencilla de subir un controlador a un robot há
   * Desktop development for C++
   * C++ MFC Latest
   * C++ ATL Latest
+* **Visual Studio deberá estar en la configuración de *Debug* en la plataforma de *Win32*, ya que ahí se encuentra configurado el *linker* y el *include path*** 
 
 # Instalación
 ## OpenHaptics
