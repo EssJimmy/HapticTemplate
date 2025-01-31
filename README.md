@@ -19,7 +19,6 @@ Solamente denle doble *clic* a los instaladores que descargaron, en el caso del 
 ## Visual Studio
 1. Seleccionar la opción ***Desktop development with C++***
 
-![clipboard.png](inkdrop://file:dgiVwEMMI)
 2. Seleccionar las siguientes opciones en el panel del lado derecho
   * MSVC v143 - VS 2022 C++ x64/x86 build tools
   * C++ ATL for latest v143 build tools (x86 & x64)
