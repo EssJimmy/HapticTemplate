@@ -28,7 +28,7 @@ constexpr int no_joints = 3;
 constexpr double sample_time = 0.001;
 constexpr double pi = 3.1415926535;
 
-// non constant global values needed in several functions
+// non constant global values needed in several functions / position and torque
 double qm[no_joints] = { 0.0 };
 std::vector<double> taum(no_joints, 0.0);
 
@@ -37,7 +37,7 @@ std::time_t end_time = std::chrono::system_clock::to_time_t(std::chrono::system_
 struct tm datetime;
 auto err = localtime_s(&datetime, &end_time);
 char output[50];
-auto x = strftime(output, sizeof output, "%Y%b%d-%H%M%S", &datetime);
+auto temp_x = strftime(output, sizeof output, "%Y%b%d-%H%M%S", &datetime);
 char buffer[50];
 auto n = sprintf_s(buffer, "./graph_data/data%s.csv", output);
 std::ofstream graph_file(buffer);
@@ -180,7 +180,7 @@ void CHapticTemplateDlg::OnPaint()
 
 		        // Center icon in client rectangle
 						    const int cx_icon = GetSystemMetrics(SM_CXICON);
-	        const int cy_icon = GetSystemMetrics(SM_CYICON);
+	         const int cy_icon = GetSystemMetrics(SM_CYICON);
 		        CRect rect;
 		        GetClientRect(&rect);
 		        const int x = (rect.Width() - cx_icon + 1) / 2;
@@ -238,6 +238,7 @@ static HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* p_user_data)
 
 // How the robot moves, by using a standard defined torque and the taum calculated in the
 // SmcTimerProc method
+// updates position every tick via the qm array, qm then works to calculate torque and other stuff
 static HDCallbackCode HDCALLBACK ServoLoopCallback(void* p_user_data) {
 				const auto p_state = static_cast<device_state_struct*>(p_user_data);
 				HDdouble torque[3] = {0.0, 0.0, 0.0};
@@ -371,10 +372,9 @@ void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_P
     constexpr double qmdf[no_joints] = { 0.0 * pi / 180.0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 }; // responsible for home position expressed in radians
 				constexpr double kpm[no_joints] = { 1.2, 1.2, 1.2 };
 				constexpr double kim[no_joints] = { 0.2, 0.2, 0.2 };
-				constexpr double kdm[no_joints] = { 0.1, 0.1, 0.1 };
 
 				double qmd[no_joints] = { 0.0 }; // qpmd[no_joints] = {0.0};
-				double em[no_joints] = {0.0}, emp[no_joints] = {0.0}, emi[no_joints] = {0.0};
+				double em[no_joints] = {0.0}, emi[no_joints] = {0.0};
 				double t = 0.0;
 
 				CString time;
@@ -423,7 +423,6 @@ void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_P
 								em[i] = qm[i] - qmd[i]; // position error calculated
         emi[i] += em[i] * sample_time; // integral of the error
         em_1[i] = em[i]; //previous error
-        emp[i] = (em[i] - em_1[i]) / sample_time; // derivative of the error
 
 								taum[i] = -kpm[i] * em[i] - kim[i] * emi[i];
 								
@@ -478,8 +477,8 @@ void CALLBACK CHapticTemplateDlg::smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PT
 				time.Format(_T("%f"), (timeGetTime() - ti) / 1000.0);
 				pMainWnd->m_time.SetWindowTextW(time);
 
-				std::vector<std::vector<double>> aux = controllers::pid_controller(pi, sample_time, i_c_smc, qm, ti);
-				//std::vector<std::vector<double>> aux = controllers::parra_vega_controller(pi, sample_time, i_c_smc, ti);
+				//std::vector<std::vector<double>> aux = controllers::pid_controller(pi, sample_time, i_c_smc, qm, ti);
+				std::vector<std::vector<double>> aux = controllers::parra_vega_controller(pi, sample_time, i_c_smc, ti, qm);
 				//std::vector<std::vector<double>> aux = controllers::nl_controller(pi, sample_time, i_c_smc, qm, ti);
 
 				std::copy(aux[0].begin(), aux[0].end(), taum.begin());
