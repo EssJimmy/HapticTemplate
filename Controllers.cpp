@@ -64,7 +64,7 @@ std::vector<std::vector<double>> controllers::pid_controller(const double pi, co
 std::vector<std::vector<double>> controllers::parra_vega_controller(const double pi, const double sample_time, const bool i_c_smc,
 				static double ti, const double* qm) {
     constexpr double gamma[no_joints] = { 0.4, 0.4, 0.4 };
-    constexpr double alpha[no_joints] = { 14.0, 14.0, 14.0 };
+    constexpr double alpha[no_joints] = { 4.0, 4.0, 4.0 };
     constexpr double kd[no_joints] = { 0.35, 0.35, 0.35 };
 
 				static double sigma[no_joints] = { 0.0, 0.0, 0.0 };
