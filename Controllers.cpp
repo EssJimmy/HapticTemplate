@@ -27,15 +27,19 @@ std::vector<std::vector<double>> controllers::pid_controller(const double pi, co
 
 				if (i_c_smc) {
 								ti = timeGetTime();
-								std::copy_n(qm, no_joints, std::begin(qm_1));
 				}
 
 				const double t = (timeGetTime() - ti) / 1000.0;
 
+    // Abbreviated Central Derivative approximation
+				dot_qm[0] = HelperFunctions::ForwardsDerivative(qm_1[0], qm[0], sample_time);
+				dot_qm[1] = HelperFunctions::ForwardsDerivative(qm_1[1], qm[1], sample_time);
+				dot_qm[2] = HelperFunctions::ForwardsDerivative(qm_1[2], qm[2], sample_time);
+
 				// dot qm / current position derivative
-				dot_qm[0] = HelperFunctions::RED1(qm[0], sample_time);
-				dot_qm[1] = HelperFunctions::RED2(qm[1], sample_time);
-				dot_qm[2] = HelperFunctions::RED3(qm[2], sample_time);
+				//dot_qm[0] = HelperFunctions::RED1(qm[0], sample_time);
+				//dot_qm[1] = HelperFunctions::RED2(qm[1], sample_time);
+				//dot_qm[2] = HelperFunctions::RED3(qm[2], sample_time);
 
 				// desired position
 				qd[0] = -0.4 + 0.4 * cos(3 * t);
@@ -57,6 +61,8 @@ std::vector<std::vector<double>> controllers::pid_controller(const double pi, co
 
 				std::vector<std::vector<double>> tau_graph_data = { tau,
 				    graph_trajectory(t, pi, qm, dot_delta_pos, delta_pos, qd, dot_qd, dot_qm, dot_qr) };
+
+				std::copy_n(qm, no_joints, std::begin(qm_1));
 
 				return tau_graph_data;
 }
@@ -149,7 +155,6 @@ std::vector<std::vector<double>> controllers::nl_controller(const double pi, con
 
 				if (i_c_smc) {
 								ti = timeGetTime();
-								std::copy_n(qm, no_joints, std::begin(qm_1));
 				}
 
 				const double t = (timeGetTime() - ti) / 1000.0;
@@ -182,7 +187,42 @@ std::vector<std::vector<double>> controllers::nl_controller(const double pi, con
 				std::vector<std::vector<double>> tau_graph_data = { tau,
 								graph_trajectory(t, pi, qm, dote_pos, e_pos, qd, dqd, vel, dot_qr) };
 
+				std::copy_n(qm, no_joints, std::begin(qm_1));
+
 				return tau_graph_data;
+}
+std::vector<std::vector<double>> controllers::adaptive_controller(const double pi, const double sample_time, 
+				const bool i_c_smc, double* qm, static double ti) {
+    static double qm_1[no_joints] = { 0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 };
+				
+				const double sigma_c = 10;
+				const double phi[8] = { 0.00251729 ,0.00108246 ,0.00137408 ,0.00076823 ,0.03526735 ,0.00744473 ,0.00449158 ,0.00534505 };
+				const double h_hat[no_joints][no_joints] = { {pow(cos(qm[1]), 2) * phi[0] + cos(qm[1])*cos(qm[1]+qm[2]) * phi[1] * pow(sin(qm[1] + qm[2]), 2) * phi[2], 0, 0},
+								{0, phi[0] + 2 * cos(qm[2]) * phi[1] + phi[2], cos(qm[2]) * phi[2] + phi[2]},
+								{0, cos(qm[2]) * phi[2] + phi[2], phi[2]}
+				};
+
+				const double alpha[no_joints] = { sigma_c, sigma_c, sigma_c };
+				double k_d[no_joints][no_joints];
+    double dote_pos[no_joints] = { 0.0,0.0,0.0 };
+    
+				for (int i = 0; i < no_joints; i++) {
+        for (int j = 0; j < no_joints; j++) {
+            k_d[i][j] = h_hat[i][j] * sigma_c;
+        }
+    }
+
+				
+
+				for (int i = 0; i < no_joints; i++) {
+
+				}
+
+				
+    
+    std::copy_n(qm, no_joints, std::begin(qm_1));
+				std::vector<std::vector<double>> adaptive_tau_graph_data;
+    return adaptive_tau_graph_data;
 }
 
 std::vector<double> controllers::graph_trajectory(const double t, const double pi, const double* qm, const double* dot_delta_pos, 
