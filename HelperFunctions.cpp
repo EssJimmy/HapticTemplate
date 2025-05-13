@@ -4,6 +4,8 @@
 #include "HelperFunctions.h"
 #include <cmath>
 
+
+
 double HelperFunctions::Sign(double f) {
 				double s = 0;
 				if (f > 0) s = 1;
@@ -105,4 +107,10 @@ double HelperFunctions::Levantq3(double pos3, const double SAMPLE_TIME) {
 				z2 += dz2 * SAMPLE_TIME;
 
 				return z1;
+}
+
+double HelperFunctions::ForwardsDerivative(const double fx1, const double fx2, const double SAMPLE_TIME) {
+				double df = (fx2 - fx1) / SAMPLE_TIME;
+
+				return df;
 }

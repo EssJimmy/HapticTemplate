@@ -11,4 +11,5 @@ public:
 				static double RED1(double posq1, const double SAMPLE_TIME);
 				static double RED2(double posq2, const double SAMPLE_TIME);
 				static double RED3(double posq3, const double SAMPLE_TIME);
+				static double ForwardsDerivative(double fx1, double fx2, const double SAMPLE_TIME);
 };
