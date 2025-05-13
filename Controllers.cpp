@@ -146,7 +146,7 @@ std::vector<std::vector<double>> controllers::nl_controller(const double pi, con
 				double qd[no_joints] = { 0.0,0.0,0.0 };
 				double dqd[no_joints] = { 0.0,0.0,0.0 };
 				double dot_sigma[no_joints] = { 0.0,0.0,0.0 };
-				double vel[no_joints] = { 0.0, 0.0, 0.0 };
+				double dot_qm[no_joints] = { 0.0, 0.0, 0.0 };
 
 				constexpr double k1[no_joints] = { 11, 16, 12 };
 				constexpr double k2[no_joints] = { 0.05, 0.08, 0.06 };
@@ -159,9 +159,9 @@ std::vector<std::vector<double>> controllers::nl_controller(const double pi, con
 
 				const double t = (timeGetTime() - ti) / 1000.0;
 
-				vel[0] = HelperFunctions::RED1(qm[0], sample_time);
-				vel[1] = HelperFunctions::RED2(qm[1], sample_time);
-				vel[2] = HelperFunctions::RED3(qm[2], sample_time);
+				dot_qm[0] = HelperFunctions::RED1(qm[0], sample_time);
+				dot_qm[1] = HelperFunctions::RED2(qm[1], sample_time);
+				dot_qm[2] = HelperFunctions::RED3(qm[2], sample_time);
 
 				qd[0] = -0.4 + 0.4 * cos(3 * t);
 				qd[1] = 1.37 + 0.2 * cos(t);
@@ -174,7 +174,7 @@ std::vector<std::vector<double>> controllers::nl_controller(const double pi, con
 				for (int i = 0; i < no_joints; i++) {
 								dqm[i] = (qm[i] - qm_1[i]) * sample_time;
 								e_pos[i] = qm[i] - qd[i];
-								dote_pos[i] = vel[i] - dqd[i];
+								dote_pos[i] = dot_qm[i] - dqd[i];
 								sq[i] = dote_pos[i] + k1[i] * HelperFunctions::Sign(e_pos[i]) * (pow((abs(e_pos[i])), alpha));
 								dot_qr[i] = dqd[i] - k1[i] * HelperFunctions::Sign(e_pos[i]) * pow((abs(e_pos[i])), alpha) - k2[i] * sigma[i];
 								s[i] = dqm[i] - dot_qr[i];
@@ -185,7 +185,7 @@ std::vector<std::vector<double>> controllers::nl_controller(const double pi, con
 				}
 
 				std::vector<std::vector<double>> tau_graph_data = { tau,
-								graph_trajectory(t, pi, qm, dote_pos, e_pos, qd, dqd, vel, dot_qr) };
+								graph_trajectory(t, pi, qm, dote_pos, e_pos, qd, dqd, dot_qm, dot_qr) };
 
 				std::copy_n(qm, no_joints, std::begin(qm_1));
 
@@ -203,19 +203,33 @@ std::vector<std::vector<double>> controllers::adaptive_controller(const double p
 				};
 
 				const double alpha[no_joints] = { sigma_c, sigma_c, sigma_c };
+    const double dot_qm[no_joints] = { HelperFunctions::ForwardsDerivative(qm_1[0], qm[0], sample_time),
+				HelperFunctions::ForwardsDerivative(qm_1[1], qm[1], sample_time), HelperFunctions::ForwardsDerivative(qm_1[2], qm[2], sample_time) };
 				double k_d[no_joints][no_joints];
-    double dote_pos[no_joints] = { 0.0,0.0,0.0 };
-    
+
 				for (int i = 0; i < no_joints; i++) {
         for (int j = 0; j < no_joints; j++) {
             k_d[i][j] = h_hat[i][j] * sigma_c;
         }
     }
 
-				
+				if (i_c_smc) {
+								ti = timeGetTime();
+				}
+
+				const double t = (timeGetTime() - ti) / 1000.0;
+				const double dot_qd[no_joints] = { -0.12 * sin(3 * t), -0.2 * sin(t), 0.4 * sin(2 * t) };
+				const double qd[no_joints] = {-0.4 + 0.4 * cos(3 * t), 1.37 + 0.2 * cos(t), -1.37 - 0.2 * cos(2 * t)};
+				double delta_qm[no_joints] = { 0.0, 0.0, 0.0 };
+				double delta_dot_qm[no_joints] = { 0.0, 0.0, 0.0 };
+    double kd_s[no_joints] = { 0.0, 0.0, 0.0 };
+    double s[no_joints] = { 0.0, 0.0, 0.0 };
 
 				for (int i = 0; i < no_joints; i++) {
-
+        delta_qm[i] = qm[i] - qd[i];
+								delta_dot_qm[i] = dot_qm[i] - qd[i];
+        s[i] = delta_dot_qm[i] + alpha[i] * delta_qm[i];
+        kd_s[i] = (k_d[i][0] + k_d[i][1] + k_d[i][2]) * delta_dot_qm[i] + k_d[i][i]*alpha[i]*delta_qm[i];
 				}
 
 				
