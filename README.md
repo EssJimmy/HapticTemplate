@@ -9,7 +9,6 @@ Este *template* provee una forma sencilla de subir un controlador a un robot há
   * Desktop development for C++
   * C++ MFC Latest
   * C++ ATL Latest
-* **Visual Studio deberá estar en la configuración de *Debug* en la plataforma de *Win32*, ya que ahí se encuentra configurado el *linker* y el *include path*** 
 
 # Instalación
 ## OpenHaptics
@@ -19,6 +18,7 @@ Solamente denle doble *clic* a los instaladores que descargaron, en el caso del 
 
 ## Visual Studio
 1. Seleccionar la opción ***Desktop development with C++***
+
 2. Seleccionar las siguientes opciones en el panel del lado derecho
   * MSVC v143 - VS 2022 C++ x64/x86 build tools
   * C++ ATL for latest v143 build tools (x86 & x64)
@@ -26,9 +26,11 @@ Solamente denle doble *clic* a los instaladores que descargaron, en el caso del 
   * C++ Modules for v143 build tools (x64/x86)
   * Windows App SDK C++ Templates
   * **En el caso de tener problemas, instalar las versiones 140, 141 y 142 de MSVC, se encuentran en la misma pestaña**
+
 3. Darle a instalar (si tienen una conexión de internet lenta, pueden cambiar la opción de *install while downloading* a *download first*
 
 # Utilizar el *template* y cargar el controlador al robot
+
 1. Lo más sencillo es clonar el repositorio desde *github* utilizando *Visual Studio*. Para esto, abrimos *Visual Studio* y le damos *clic* en **Clonar repositorio**.
 2. En el campo de texto ingresarán la dirección URL que aparece en el botón ***Code*** que está dentro de este mismo repositorio al inicio. Deberán ingresar el link que se encuentra en la pestaña ***HTTPS***.
 3. Entrarán a *Visual Studio* inmediatamente después de darle a clonar, en la pantalla que aparece en *Visual Studio* abrán el archivo ***.sln***
@@ -39,11 +41,7 @@ $$
 \text{Inicializar dispositivo } \rightarrow \text{ Calibracion } \rightarrow \text{ Lectura encoders } \rightarrow { Home } \rightarrow { SMC} 
 $$
 
-Esperen un poco de tiempo a que el robot llegue a *Home* antes de darle al botón *SMC*. 
-**¡Lo lograrón! Happy hacking! :)**
-
-## Usar el *template* para crear nuevo código
-Si no quieren usar exclusivamente mi código, pueden crear un template utilizando el botón de la esquina superior derecha que dice *Use this template* $\rightarrow$ *Create a repository*, y crear sus propios códigos a su gusto. Eviten copiar el *branch* de *development*, en ese hay cosas que no he probado todavía y no son seguras de cargar al robot.
+Esperen un poco de tiempo a que el robot llegue a *Home* antes de darle al botón *SMC*. ¡Lo lograrón! Happy hacking! :)
 
 # Código
 El código central a modificar se encuentra dentro de los archivos `HapticTemplateDlg.cpp`, `HelperFunctions.cpp` y `Controllers.cpp`. Dentro del primer archivo se encuentra el código de llamada del controlador del robot, el único método para editar que control se está utilizando es `CHapticTemplateDlg::SmcTimerProc()`, los demás son necesarios para el funcionamiento de la interfaz gráfica, inicialización, calibración, entre otros. Dentro de `HelperFunctions.cpp` se encuentran funciones auxiliares para el cálculo de diferentes valores necesarios, como derivadas de Levant, etcétera. Tl;dr: si van a cambiar el controlador, muevan `SmcTimerProc()`, y auxiliense con `HelperFunctions.cpp`. `Controllers.cpp` es el archivo más importante, ya que aquí está implementada la lógica de los tres controladores del *template*. Estos controladores ya están probados y funcionan, no van a dañar al robot (aguas con el culeteo del Parra-Vega), si quieren implementar algún controlador, les recomiendo lo hagan aquí.
