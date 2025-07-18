@@ -11,6 +11,7 @@
 #include <chrono>
 #include <ctime>
 #include <string>
+#include <QHHeadersWin32.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -25,19 +26,21 @@ typedef struct {
 
 // constant values for calculations and other stuff
 constexpr int no_joints = 3;
-constexpr double sample_time = 0.001;
+constexpr double sample_time = 0.00001;
 constexpr double pi = 3.1415926535;
 
-// non constant global values needed in several functions
+// non constant global values needed in several functions / position and torque
 double qm[no_joints] = { 0.0 };
 std::vector<double> taum(no_joints, 0.0);
 
+
+// graph stuff
 // file for saving data
 std::time_t end_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 struct tm datetime;
 auto err = localtime_s(&datetime, &end_time);
 char output[50];
-auto x = strftime(output, sizeof output, "%Y%b%d-%H%M%S", &datetime);
+auto temp_x = strftime(output, sizeof output, "%Y%b%d-%H%M%S", &datetime);
 char buffer[50];
 auto n = sprintf_s(buffer, "./graph_data/data%s.csv", output);
 std::ofstream graph_file(buffer);
@@ -55,7 +58,7 @@ MMRESULT smc_timer_id;
 bool initialized = false, scheduler_started = false;
 bool i_c_home = true, home_flag = true, home_completed_flag = true;
 bool i_c_smc = true, smc_flag = true, smc_completed_flag = true;
-bool completed = true;
+bool completed = true; bool graph_opened = false;
 
 // CAboutDlg dialog used for App About
 class CAboutDlg : public CDialogEx
@@ -180,7 +183,7 @@ void CHapticTemplateDlg::OnPaint()
 
 		        // Center icon in client rectangle
 						    const int cx_icon = GetSystemMetrics(SM_CXICON);
-	        const int cy_icon = GetSystemMetrics(SM_CYICON);
+	         const int cy_icon = GetSystemMetrics(SM_CYICON);
 		        CRect rect;
 		        GetClientRect(&rect);
 		        const int x = (rect.Width() - cx_icon + 1) / 2;
@@ -238,6 +241,7 @@ static HDCallbackCode HDCALLBACK CalibrationStatusCallback(void* p_user_data)
 
 // How the robot moves, by using a standard defined torque and the taum calculated in the
 // SmcTimerProc method
+// updates position every tick via the qm array, qm then works to calculate torque and other stuff
 static HDCallbackCode HDCALLBACK ServoLoopCallback(void* p_user_data) {
 				const auto p_state = static_cast<device_state_struct*>(p_user_data);
 				HDdouble torque[3] = {0.0, 0.0, 0.0};
@@ -265,8 +269,8 @@ static HDCallbackCode HDCALLBACK ServoLoopCallback(void* p_user_data) {
 // Creates the connection to the robot, can be used to create a connection to a slave robot
 // TODO: work in the slave robot connection
 void CHapticTemplateDlg::on_bn_clicked_initialize()
-{
-				HDErrorInfo error;
+{			
+	HDErrorInfo error;
     const HDstring master_robot = "Default Device";
 				hHDm = hdInitDevice(master_robot);
 				if (HD_DEVICE_ERROR(error = hdGetError()))
@@ -307,6 +311,8 @@ void CHapticTemplateDlg::on_bn_clicked_initialize()
 				}
 
 				timeBeginPeriod(1);
+
+
 }
 
 // Assigns the calibration parameters established in the driver to the robot
@@ -361,101 +367,98 @@ void CHapticTemplateDlg::on_bn_clicked_read() {
 				return;
 }
 
-// Returns to the home position for the robot, uses a small PID code to do so
+// Returns to the home position for the robot, uses a small PD code to do so
 // Can be adjusted to return faster to home but, so far the convergence is right
 void CALLBACK CHapticTemplateDlg::home_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2) {
-				static double ti = 0.0, tf = 2.0;
-				static double bm0[no_joints] = { 0.0 }, bm3[no_joints] = { 0.0 }, bm4[no_joints] = { 0.0 }, bm5[no_joints] = { 0.0 };
-				static double em_1[no_joints] = { 0.0 };
+	static double ti = 0.0, tf = 2.0;
+	static double bm0[no_joints] = { 0.0 }, bm3[no_joints] = { 0.0 }, bm4[no_joints] = { 0.0 }, bm5[no_joints] = { 0.0 };
+	static double em_1[no_joints] = { 0.0 };
 
     constexpr double qmdf[no_joints] = { 0.0 * pi / 180.0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 }; // responsible for home position expressed in radians
-				constexpr double kpm[no_joints] = { 1.2, 1.2, 1.2 };
-				constexpr double kim[no_joints] = { 0.2, 0.2, 0.2 };
-				constexpr double kdm[no_joints] = { 0.1, 0.1, 0.1 };
+	constexpr double kpm[no_joints] = { 1.2, 1.2, 1.2 };
+	constexpr double kim[no_joints] = { 0.2, 0.2, 0.2 };
 
-				double qmd[no_joints] = { 0.0 }; // qpmd[no_joints] = {0.0};
-				double em[no_joints] = {0.0}, emp[no_joints] = {0.0}, emi[no_joints] = {0.0};
-				double t = 0.0;
+	double qmd[no_joints] = { 0.0 }; // qpmd[no_joints] = {0.0};
+	double em[no_joints] = {0.0}, emi[no_joints] = {0.0};
+	double t = 0.0;
 
-				CString time;
+	CString time;
 
-				auto pMainWnd = dynamic_cast<CHapticTemplateDlg*>(AfxGetApp()->m_pMainWnd);
+	auto pMainWnd = dynamic_cast<CHapticTemplateDlg*>(AfxGetApp()->m_pMainWnd);
 				
-				if (i_c_home) {
-								ti = timeGetTime();
+	if (i_c_home) {
+		ti = timeGetTime();
 
-								for (int i = 0; i < no_joints; i++) {
-												bm0[i] = qm[i];
-												bm3[i] = 10.0 * (qmdf[i] - qm[i]) / pow(tf, 3);
-												bm4[i] = -15.0 * (qmdf[i] - qm[i]) / pow(tf, 4);
-												bm5[i] = 6.0 * (qmdf[i] - qm[i]) / pow(tf, 5);
-								}
+		for (int i = 0; i < no_joints; i++) {
+			bm0[i] = qm[i];
+			bm3[i] = 10.0 * (qmdf[i] - qm[i]) / pow(tf, 3);
+			bm4[i] = -15.0 * (qmdf[i] - qm[i]) / pow(tf, 4);
+			bm5[i] = 6.0 * (qmdf[i] - qm[i]) / pow(tf, 5);
+		}
 
-								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Reaching home position ***"));
-				}
+		pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Reaching home position ***"));
+	}
 
-				t = (timeGetTime() - ti) / 1000.0;
-				if (t <= tf) {
-								time.Format(_T("%f"), t);
-								pMainWnd->m_time.SetWindowTextW(time);
-				}
-				else {
-								t = tf;
-								time.Format(_T("%f"), t);
-								pMainWnd->m_time.SetWindowTextW(time);
-				}
+	t = (timeGetTime() - ti) / 1000.0;
+	if (t <= tf) {
+		time.Format(_T("%f"), t);
+		pMainWnd->m_time.SetWindowTextW(time);
+	}
+	else {
+		t = tf;
+		time.Format(_T("%f"), t);
+		pMainWnd->m_time.SetWindowTextW(time);
+	}
 
-				if (ti <= 0.001) {
-								std::copy(std::begin(bm0), std::end(bm0), std::begin(qm));
-				}
+	if (ti <= 0.001) {
+		std::copy(std::begin(bm0), std::end(bm0), std::begin(qm));
+	}
 
-				for (int i = 0; i < no_joints; i++) {
-								if (t <= tf) {
-            qmd[i] = bm5[i] * pow(t, 5) + bm4[i] * pow(t, 4) + bm3[i] * pow(t, 3) + bm0[i]; // real position expressed in a polynomial
-												//qpmd[i] = 5.0*bm5[i]*pow(t, 4) + 4.0*bm4[i]*pow(t, 3) + 3.0*bm3[i]*pow(t, 2);
-								}
-								else {
-												qmd[i] = qmdf[i];
-								}
-				}
-
-				for (int i = 0; i < no_joints; i++) {
-								em[i] = qm[i] - qmd[i]; // position error calculated
+	for (int i = 0; i < no_joints; i++) {
+		if (t <= tf) {
+			qmd[i] = bm5[i] * pow(t, 5) + bm4[i] * pow(t, 4) + bm3[i] * pow(t, 3) + bm0[i]; // real position expressed in a polynomial
+			//qpmd[i] = 5.0*bm5[i]*pow(t, 4) + 4.0*bm4[i]*pow(t, 3) + 3.0*bm3[i]*pow(t, 2);
+		}
+		else {
+			qmd[i] = qmdf[i];
+			}
+	}
+	
+	for (int i = 0; i < no_joints; i++) {
+		em[i] = qm[i] - qmd[i]; // position error calculated
         emi[i] += em[i] * sample_time; // integral of the error
         em_1[i] = em[i]; //previous error
-        emp[i] = (em[i] - em_1[i]) / sample_time; // derivative of the error
 
-								taum[i] = -kpm[i] * em[i] - kim[i] * emi[i];
-								
-				}
+		taum[i] = -kpm[i] * em[i] - kim[i] * emi[i];
+						
+	}
 
-				if (t > tf && completed) {
-								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Home position ***"));
-								completed = false;
-				}
+	if (t > tf && completed) {
+		pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Home position ***"));
+		completed = false;
+	}
 
-				if (i_c_home) i_c_home = false;
+	if (i_c_home) i_c_home = false;
 }
 
 // Calls the above function with a timer to reach home 
 // position in a certain time
 void CHapticTemplateDlg::on_bn_clicked_home() {
-				if (!i_c_home) {
-								timeKillEvent(home_timer_id);
-								home_completed_flag = i_c_home = true;
-				}
-				if (!i_c_smc) {
-								timeKillEvent(smc_timer_id);
-				}
+	if (!i_c_home) {
+		timeKillEvent(home_timer_id);
+		home_completed_flag = i_c_home = true;
+	}
+	if (!i_c_smc) {
+		timeKillEvent(smc_timer_id);
+	}
 
-				home_timer_id = timeSetEvent(static_cast<UINT>(sample_time * 1000.0), 0, home_timer_proc, 0, TIME_PERIODIC); //Home timer initialization
+	home_timer_id = timeSetEvent(static_cast<UINT>(sample_time * 100000.0), 0, home_timer_proc, 0, TIME_PERIODIC); //Home timer initialization
 }
 
 void CHapticTemplateDlg::write_data_to_file(const std::vector<double>& graph_data)
 {
-    for(const auto& d: graph_data)
-    {
-								graph_file << d << ",";
+    for(const auto& d: graph_data) {
+		graph_file << d << ",";
     }
 
     graph_file << "\n";
@@ -465,37 +468,38 @@ void CHapticTemplateDlg::write_data_to_file(const std::vector<double>& graph_dat
 // added, it doesn't work, I'll add it later
 // works properly now, the other two controllers are yet to work
 void CALLBACK CHapticTemplateDlg::smc_timer_proc(UINT u_id, UINT u_msg, DWORD_PTR dw_user, DWORD_PTR dw1, DWORD_PTR dw2) {
-				auto pMainWnd = dynamic_cast<CHapticTemplateDlg*>(AfxGetApp()->m_pMainWnd);
-				CString time;
+	auto pMainWnd = dynamic_cast<CHapticTemplateDlg*>(AfxGetApp()->m_pMainWnd);
+	CString time;
 
-				static double ti = 0.0;
+	static double ti = 0.0;
 
-				if (i_c_smc) {
-								ti = timeGetTime();
-								pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Control in progress ***"));
-				}
+	if (i_c_smc) {
+		ti = timeGetTime();
+		pMainWnd->m_statusTextBox.SetWindowTextW(_T("*** Control in progress ***"));
+	}
 
-				time.Format(_T("%f"), (timeGetTime() - ti) / 1000.0);
-				pMainWnd->m_time.SetWindowTextW(time);
+	time.Format(_T("%f"), (timeGetTime() - ti)/1000);
+	pMainWnd->m_time.SetWindowTextW(time);
 
-				std::vector<std::vector<double>> aux = controllers::pid_controller(pi, sample_time, i_c_smc, qm, ti);
-				//std::vector<std::vector<double>> aux = controllers::parra_vega_controller(pi, sample_time, i_c_smc, ti);
-				//std::vector<std::vector<double>> aux = controllers::nl_controller(pi, sample_time, i_c_smc, qm, ti);
+	std::vector<std::vector<double>> aux = controllers::pid_controller(pi, sample_time, i_c_smc, qm, ti);
+	//std::vector<std::vector<double>> aux = controllers::parra_vega_controller(pi, sample_time, i_c_smc, ti, qm);
+	//std::vector<std::vector<double>> aux = controllers::adaptive_controller(pi, sample_time, i_c_smc, qm, ti);
 
-				std::copy(aux[0].begin(), aux[0].end(), taum.begin());
-				write_data_to_file(aux[1]);
-				aux.swap(std::vector<std::vector<double>>());
+	std::copy(aux[0].begin(), aux[0].end(), taum.begin());
+	write_data_to_file(aux[1]);
+				
+	aux.swap(std::vector<std::vector<double>>());
 
-				if (i_c_smc) i_c_smc = false;
+	if (i_c_smc) i_c_smc = false;
 }
 
 void CHapticTemplateDlg::on_bn_clicked_smc() {
-				if (!i_c_home) timeKillEvent(home_timer_id);
+	if (!i_c_home) timeKillEvent(home_timer_id);
 
-				if (!i_c_smc) {
-								timeKillEvent(smc_timer_id);
-								smc_completed_flag = i_c_smc = true;
-				}
+	if (!i_c_smc) {
+		timeKillEvent(smc_timer_id);
+		smc_completed_flag = i_c_smc = true;
+	}
 
-				smc_timer_id = timeSetEvent(static_cast<UINT>(sample_time * 1000.0), 0, smc_timer_proc, 0, TIME_PERIODIC);
+	smc_timer_id = timeSetEvent(static_cast<UINT>(sample_time * 100000.0), 0, smc_timer_proc, 0, TIME_PERIODIC);
 }

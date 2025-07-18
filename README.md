@@ -30,10 +30,12 @@ Solamente denle doble *clic* a los instaladores que descargaron, en el caso del 
 3. Darle a instalar (si tienen una conexión de internet lenta, pueden cambiar la opción de *install while downloading* a *download first*
 
 # Utilizar el *template* y cargar el controlador al robot
-Lo más sencillo es clonar el repositorio desde *github* utilizando *Visual Studio*. Para esto, abrimos *Visual Studio* y le damos *clic* en **Clonar repositorio**.
-En el campo de texto ingresarán la dirección URL que aparece en el botón ***Code*** que está dentro de este mismo repositorio al inicio. Deberán ingresar el link que se encuentra en la pestaña ***HTTPS***.
-Entrarán a *Visual Studio* inmediatamente después de darle a clonar, en la pantalla que aparece en *Visual Studio* abrán el archivo ***.sln***.
-Si hicieron todo bien, y no se desconfiguró nada deberán poder ver junto al botón de *play* las diferentes configuraciones, tienen que seleccionar la configuración *Debug - Win32* y darle al botón de *play*, las primeras veces se tardará un poquito en compilar, sean pacientes. El *template* viene precargado con un controlador *PID* muy sencillo, por lo qué pueden probar su instalación corriendo el programa y haciendo *clic* en los botones del programa en el siguiente orden:
+
+1. Lo más sencillo es clonar el repositorio desde *github* utilizando *Visual Studio*. Para esto, abrimos *Visual Studio* y le damos *clic* en **Clonar repositorio**.
+2. En el campo de texto ingresarán la dirección URL que aparece en el botón ***Code*** que está dentro de este mismo repositorio al inicio. Deberán ingresar el link que se encuentra en la pestaña ***HTTPS***.
+3. Entrarán a *Visual Studio* inmediatamente después de darle a clonar, en la pantalla que aparece en *Visual Studio* abrán el archivo ***.sln***
+4. Si todo salío bien deberían estar en la pantalla principal de Visual Studio, en la parte superior deberán poder ver las configuraciones de compilación, por defecto están en *Release - x64*, lo deberán cambiar a *Debug - Win32*.
+5. Si no se desconfiguró nada deberían ser capaces de darle al botón de *play* donde dice *Local Windows Debugger*, las primeras veces se tardará un poquito en compilar, sean pacientes. El *template* viene precargado con tres controladores, por lo qué pueden probar su instalación corriendo el programa y haciendo *clic* en los botones del programa en el siguiente orden:
 
 $$
 \text{Inicializar dispositivo } \rightarrow \text{ Calibracion } \rightarrow \text{ Lectura encoders } \rightarrow { Home } \rightarrow { SMC} 
@@ -42,6 +44,6 @@ $$
 Esperen un poco de tiempo a que el robot llegue a *Home* antes de darle al botón *SMC*. ¡Lo lograrón! Happy hacking! :)
 
 # Código
-El código central a modificar se encuentra dentro de los archivos `HapticTemplateDlg.cpp`, `HelperFunctions.cpp` y `Controllers.cpp`. Dentro del primer archivo se encuentra el código de llamada del controlador del robot, el único método para editar que control se está utilizando es `CHapticTemplateDlg::SmcTimerProc()`, los demás son necesarios para el funcionamiento de la interfaz gráfica, inicialización, calibración, entre otros. Dentro de `HelperFunctions.cpp` se encuentran funciones auxiliares para el cálculo de diferentes valores necesarios, como derivadas de Levant, etcétera. El archivo `Controllers.cpp` contiene el cálculo principal de $\tau$, variable necesaria para el control por torque del robot. Tl;dr: si van a cambiar de entre los controladores ya programados, muevan `SmcTimerProc()`, si van a crear un nuevo controlador, muevan `Controllers.cpp` y auxiliense con `HelperFunctions.cpp`.
+El código central a modificar se encuentra dentro de los archivos `HapticTemplateDlg.cpp`, `HelperFunctions.cpp` y `Controllers.cpp`. Dentro del primer archivo se encuentra el código de llamada del controlador del robot, el único método para editar que control se está utilizando es `CHapticTemplateDlg::SmcTimerProc()`, los demás son necesarios para el funcionamiento de la interfaz gráfica, inicialización, calibración, entre otros. Dentro de `HelperFunctions.cpp` se encuentran funciones auxiliares para el cálculo de diferentes valores necesarios, como derivadas de Levant, etcétera. Tl;dr: si van a cambiar el controlador, muevan `SmcTimerProc()`, y auxiliense con `HelperFunctions.cpp`. `Controllers.cpp` es el archivo más importante, ya que aquí está implementada la lógica de los tres controladores del *template*. Estos controladores ya están probados y funcionan, no van a dañar al robot (aguas con el culeteo del Parra-Vega), si quieren implementar algún controlador, les recomiendo lo hagan aquí.
 
 Suerte :)

@@ -9,191 +9,267 @@ std::vector<double> tau(no_joints, 0.0);
 std::vector<std::vector<double>> controllers::pid_controller(const double pi, const double sample_time, const bool i_c_smc, double* qm, 
 				static double ti) {
 				
-				static double qm_1[no_joints] = { 0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 };
-				constexpr double dot_qr[no_joints] = { 0.0,0.0,0.0 };
-				constexpr double alpha = 9.0 / 11.0;
+	static double qm_1[no_joints] = { 0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 };
+	constexpr double dot_qr[no_joints] = { 0.0,0.0,0.0 };
 
-				constexpr double kp[no_joints] = { 1.1,1.2,2.0 };
-				constexpr double ki[no_joints] = { 0.2,0.2,0.2 };
-				constexpr double kd[no_joints] = { 0.1,0.2,0.2 }; // dont touch this
+	constexpr double kp[no_joints] = { 1.1,1.2,2.0 };
+	constexpr double ki[no_joints] = { 0.2,0.2,0.2 };
+	constexpr double kd[no_joints] = { 0.1,0.2,0.2 }; // dont touch this
 
-				double dote_pos[no_joints] = { 0.0,0.0,0.0 };
-				double e_pos[no_joints] = { 0.0,0.0,0.0 };
-				double qd[no_joints] = { 0.0,0.0,0.0 };
-				double dqd[no_joints] = { 0.0,0.0,0.0 };
-				double e_pos_i[no_joints] = { 0.0, 0.0, 0.0 };
-				double vel[no_joints] = { 0.0, 0.0, 0.0 };
+	double dot_delta_pos[no_joints] = { 0.0,0.0,0.0 };
+	double delta_pos[no_joints] = { 0.0,0.0,0.0 };
+	double qd[no_joints] = { 0.0,0.0,0.0 };
+	double dot_qd[no_joints] = { 0.0,0.0,0.0 };
+	double delta_pos_i[no_joints] = { 0.0, 0.0, 0.0 };
+	double dot_qm[no_joints] = { 0.0, 0.0, 0.0 };
 
-				constexpr double k1[no_joints] = { 11, 16, 12 };
+	constexpr double k1[no_joints] = { 11, 16, 12 };
 
-				if (i_c_smc) {
-								ti = timeGetTime();
-								std::copy_n(qm, no_joints, std::begin(qm_1));
-				}
+	if (i_c_smc) {
+		ti = timeGetTime();
+	}
 
-				const double t = (timeGetTime() - ti) / 1000.0;
+	const double t = (timeGetTime() - ti) / 1000.0;
 
-				vel[0] = HelperFunctions::RED1(qm[0], sample_time);
-				vel[1] = HelperFunctions::RED2(qm[1], sample_time);
-				vel[2] = HelperFunctions::RED3(qm[2], sample_time);
+    // Abbreviated Central Derivative approximation
+	//dot_qm[0] = HelperFunctions::ForwardsDerivative(qm_1[0], qm[0], sample_time);
+	//dot_qm[1] = HelperFunctions::ForwardsDerivative(qm_1[1], qm[1], sample_time);
+	//dot_qm[2] = HelperFunctions::ForwardsDerivative(qm_1[2], qm[2], sample_time);
 
-				qd[0] = -0.4 + 0.4 * cos(3 * t);
-				qd[1] = 1.37 + 0.2 * cos(t);
-				qd[2] = -1.37 - 0.2 * cos(2 * t);
+	// dot qm / current position derivative
+	dot_qm[0] = HelperFunctions::RED1(qm[0], sample_time);
+	dot_qm[1] = HelperFunctions::RED2(qm[1], sample_time);
+	dot_qm[2] = HelperFunctions::RED3(qm[2], sample_time);
 
-				dqd[0] = -0.12 * sin(3 * t);
-				dqd[1] = -0.2 * sin(t);
-				dqd[2] = 0.4 * sin(2 * t);
+	// desired position
+	qd[0] = -0.4 + 0.4 * cos(3 * t);
+	qd[1] = 1.37 + 0.2 * cos(t);
+	qd[2] = -1.37 - 0.2 * cos(2 * t);
 
-				for (int i = 0; i < no_joints; i++) {
-								e_pos[i] = qm[i] - qd[i];
-								dote_pos[i] = vel[i] - dqd[i];
-								e_pos_i[i] += e_pos[i] * sample_time;
+	// desired velocity
+	dot_qd[0] = -0.12 * sin(3 * t);
+	dot_qd[1] = -0.2 * sin(t);
+	dot_qd[2] = 0.4 * sin(2 * t);
 
-								tau[i] = -kp[i] * e_pos[i] - ki[i] * e_pos_i[i] - kd[i] * dote_pos[i];
-				}
+	for (int i = 0; i < no_joints; i++) {
+        delta_pos[i] = qm[i] - qd[i]; // current position error
+        dot_delta_pos[i] = dot_qm[i] - dot_qd[i]; // current velocity error
+        delta_pos_i[i] += delta_pos[i] * sample_time; // integral of the error
 
-				std::vector<std::vector<double>> tau_graph_data = { tau,
-				    graph_trajectory(t, pi, qm, dote_pos, e_pos, qd, dqd, vel, dot_qr) };
+		tau[i] = -kp[i] * delta_pos[i] - ki[i] * delta_pos_i[i] - kd[i] * dot_delta_pos[i]; //pid standard shenanigans
+	}
 
-				return tau_graph_data;
+	std::vector<std::vector<double>> tau_graph_data = { tau,
+		graph_trajectory(t, pi, qm, dot_delta_pos, delta_pos, qd, dot_qd, dot_qm, dot_qr) };
+
+	std::copy_n(qm, no_joints, std::begin(qm_1));
+
+	return tau_graph_data;
 }
 
 std::vector<std::vector<double>> controllers::parra_vega_controller(const double pi, const double sample_time, const bool i_c_smc,
-				static double ti) {
-    constexpr double gamma_pv[no_joints] = { 0.4, 0.4, 0.4 };
-    constexpr double alpha_pv[no_joints] = { 14.0, 14.0, 14.0 };
-    constexpr double kd_pv[no_joints] = { 0.35, 0.35, 0.35 };
+				static double ti, const double* qm) {
+    constexpr double gamma[no_joints] = { 0.4, 0.4, 0.4 };
+    constexpr double alpha[no_joints] = { 4.0, 4.0, 4.0 };
+    constexpr double kd[no_joints] = { 0.35, 0.35, 0.35 };
 
-				static double sigma_pv[no_joints] = { 0.0, 0.0, 0.0 };
+	static double sigma[no_joints] = { 0.0, 0.0, 0.0 };
+    static double qm_1[no_joints] = { 0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 };
 
-    constexpr double dote_pos[no_joints] = { 0.0,0.0,0.0 };
-    constexpr double e_pos[no_joints] = { 0.0,0.0,0.0 };
-				double dqd[no_joints] = { 0.0,0.0,0.0 };
-				double dot_qr_pv[no_joints] = { 0.0, 0.0, 0.0 };
-				double dot_sigma_pv[no_joints] = { 0.0, 0.0, 0.0 };
-				double s_pv[no_joints] = { 0.0, 0.0, 0.0 };
-    constexpr double sd_pv[no_joints] = { 0.0, 0.0, 0.0 };
-				double sr_pv[no_joints] = { 0.0, 0.0, 0.0 };
-				double sq_pv[no_joints] = { 0.0, 0.0, 0.0 };
+    double dot_delta_pos[no_joints] = { 0.0,0.0,0.0 };
+    double delta_pos[no_joints] = { 0.0,0.0,0.0 };
+    double dot_qm[no_joints] = { 0.0, 0.0, 0.0 };
+    double qd[no_joints] = { 0.0,0.0,0.0 };
+	double dot_qd[no_joints] = { 0.0,0.0,0.0 };
+	double dot_qr[no_joints] = { 0.0, 0.0, 0.0 };
+	double dot_sigma[no_joints] = { 0.0, 0.0, 0.0 };
+	double s[no_joints] = { 0.0, 0.0, 0.0 };
+    constexpr double sd[no_joints] = { 0.0, 0.0, 0.0 };
+	double sr[no_joints] = { 0.0, 0.0, 0.0 };
+	double sq[no_joints] = { 0.0, 0.0, 0.0 };
 
-				if (i_c_smc) {
-								ti = timeGetTime();
-				}
+	if (i_c_smc) {
+		ti = timeGetTime();
+		std::copy_n(qm, no_joints, std::begin(qm_1));
+	}
 
-				const double t = (timeGetTime() - ti) / 1000.0;
+	const double t = (timeGetTime() - ti) / 1000.0;
 
-				dqd[0] = -0.12 * sin(3 * t);
-				dqd[1] = -0.2 * sin(t);
-				dqd[2] = 0.4 * sin(2 * t);
+	// current position velocity
+	dot_qm[0] = HelperFunctions::RED1(qm[0], sample_time);
+	dot_qm[1] = HelperFunctions::RED2(qm[1], sample_time);
+	dot_qm[2] = HelperFunctions::RED3(qm[2], sample_time);
 
-				for (int i = 0; i < no_joints; i++) {
-								sigma_pv[i] += dot_sigma_pv[i] * sample_time;
-								dot_qr_pv[i] = dqd[i] - alpha_pv[i] * e_pos[i] + sd_pv[i] - gamma_pv[i] * sigma_pv[i];
-								dot_sigma_pv[i] = HelperFunctions::Sign(sq_pv[i]);
-								s_pv[i] = dote_pos[i] + alpha_pv[i] * e_pos[i];
-								sq_pv[i] = s_pv[i];
-								sr_pv[i] = sq_pv[i] + gamma_pv[i] * sigma_pv[i];
+	// desired trajectory
+    qd[0] = -0.4 + 0.4 * cos(3 * t);
+	qd[1] = 1.37 + 0.2 * cos(t);
+	qd[2] = -1.37 - 0.2 * cos(2 * t);
 
-								tau[i] = -kd_pv[i] * sr_pv[i];
-				}
+    // desired velocity
+	dot_qd[0] = -0.12 * sin(3 * t);
+	dot_qd[1] = -0.2 * sin(t);
+	dot_qd[2] = 0.4 * sin(2 * t);
 
-				std::vector<std::vector<double>> tau_graph_data = { tau, std::vector<double>(25) };
+	for (int i = 0; i < no_joints; i++) {
+        delta_pos[i] = qm[i] - qd[i]; // current position error
+        dot_delta_pos[i] = dot_qm[i] - dot_qd[i]; // current velocity error
+        dot_sigma[i] = HelperFunctions::Sign(sq[i]); // sign of the error
+		sigma[i] += dot_sigma[i] * sample_time; // error in time
+	    dot_qr[i] = dot_qd[i] - alpha[i]*delta_pos[i] + sd[i] - gamma[i] * sigma[i]; // nominal reference for nl pid
+								
+		s[i] = dot_delta_pos[i] + alpha[i] * delta_pos[i];
+		sq[i] = s[i];
+		sr[i] = sq[i] + gamma[i] * sigma[i];
 
-				return tau_graph_data;
+		tau[i] = -kd[i] * sr[i];
+	}
+
+	std::vector<std::vector<double>> tau_graph_data = { tau,
+		graph_trajectory(t, pi, qm, dot_delta_pos, delta_pos, qd, dot_qd, dot_qm, dot_qr)};
+
+	return tau_graph_data;
 }
 
-std::vector<std::vector<double>> controllers::nl_controller(const double pi, const double sample_time,
-				const bool i_c_smc, double *qm, static double ti) {
-				static double qm_1[no_joints] = { 0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 };
-				static double sigma[no_joints] = { 0.0,0.0,0.0 };
-				constexpr double alpha = 9.0 / 11.0;
+std::vector<std::vector<double>> controllers::adaptive_controller(const double pi, const double sample_time, 
+				const bool i_c_smc, double* qm, static double ti) {
+    static double qm_1[no_joints] = { 0, 90.0 * pi / 180.0, -90.0 * pi / 180.0 };
+				
+	const double sigma_c = 10;
+	const double phi[8] = { 0.00251729 ,0.00108246 ,0.00137408 ,0.00076823 ,0.03526735 ,0.00744473 ,0.00449158 ,0.00534505 };
+	const double h_hat[no_joints][no_joints] = { {pow(cos(qm[1]), 2) * phi[0] + cos(qm[1])*cos(qm[1]+qm[2]) * phi[1] * pow(sin(qm[1] + qm[2]), 2) * phi[2], 0, 0},
+				{0, phi[0] + 2 * cos(qm[2]) * phi[1] + phi[2], cos(qm[2]) * phi[2] + phi[2]},
+				{0, cos(qm[2]) * phi[2] + phi[2], phi[2]}
+	};
 
+	const double alpha[no_joints] = { sigma_c, sigma_c, sigma_c };
+	const double dot_qm[no_joints] = { HelperFunctions::RED1(qm[0], sample_time),
+		HelperFunctions::RED2(qm[1], sample_time),
+		HelperFunctions::RED3(qm[2], sample_time), };
+	const double ddot_qm[no_joints] = { HelperFunctions::RED1(dot_qm[0], sample_time),
+		HelperFunctions::RED2(dot_qm[1], sample_time),
+		HelperFunctions::RED3(dot_qm[2], sample_time), };
 
-				double dote_pos[no_joints] = { 0.0,0.0,0.0 };
-				double e_pos[no_joints] = { 0.0,0.0,0.0 };
-				double sq[no_joints] = { 0.0,0.0,0.0 };
-				double dot_qr[no_joints] = { 0.0,0.0,0.0 };
-				double dqm[no_joints] = { 0, 0, 0 };
-				double s[no_joints] = { 0.0,0.0,0.0 };
-				double qd[no_joints] = { 0.0,0.0,0.0 };
-				double dqd[no_joints] = { 0.0,0.0,0.0 };
-				double dot_sigma[no_joints] = { 0.0,0.0,0.0 };
-				double vel[no_joints] = { 0.0, 0.0, 0.0 };
+	const double p_zero[8][8] = { { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
+	{ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
+	{ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
+	{ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 }, };
 
-				constexpr double k1[no_joints] = { 11, 16, 12 };
-				constexpr double k2[no_joints] = { 0.05, 0.08, 0.06 };
-				constexpr double k3[no_joints] = { 0.05, 0.05, 0.05 };
-				constexpr double k4[no_joints] = { 0.16, 0.28, 0.26 };
+	double k_d[no_joints][no_joints];
 
-				if (i_c_smc) {
-								ti = timeGetTime();
-								std::copy_n(qm, no_joints, std::begin(qm_1));
-				}
+	for (int i = 0; i < no_joints; i++) {
+        for (int j = 0; j < no_joints; j++) {
+            k_d[i][j] = h_hat[i][j] * sigma_c;
+        }
+    }
 
-				const double t = (timeGetTime() - ti) / 1000.0;
+	if (i_c_smc) {
+		ti = timeGetTime();
+	}
 
-				vel[0] = HelperFunctions::RED1(qm[0], sample_time);
-				vel[1] = HelperFunctions::RED2(qm[1], sample_time);
-				vel[2] = HelperFunctions::RED3(qm[2], sample_time);
+	const double t = (timeGetTime() - ti) / 1000.0;
+	const double dot_qd[no_joints] = { -0.12 * sin(3 * t), -0.2 * sin(t), 0.4 * sin(2 * t) };
+	const double qd[no_joints] = {-0.4 + 0.4 * cos(3 * t), 1.37 + 0.2 * cos(t), -1.37 - 0.2 * cos(2 * t)};
+	double delta_qm[no_joints] = { 0.0, 0.0, 0.0 };
+	double delta_dot_qm[no_joints] = { 0.0, 0.0, 0.0 };
+    double kd_s[no_joints] = { 0.0, 0.0, 0.0 };
+    double s[no_joints] = { 0.0, 0.0, 0.0 };
 
-				qd[0] = -0.4 + 0.4 * cos(3 * t);
-				qd[1] = 1.37 + 0.2 * cos(t);
-				qd[2] = -1.37 - 0.2 * cos(2 * t);
+	for (int i = 0; i < no_joints; i++) {
+        delta_qm[i] = qm[i] - qd[i];
+		delta_dot_qm[i] = dot_qm[i] - qd[i];
+        s[i] = delta_dot_qm[i] + alpha[i] * delta_qm[i];
+        kd_s[i] = (k_d[i][0] + k_d[i][1] + k_d[i][2]) * delta_dot_qm[i] + k_d[i][i]*alpha[i]*delta_qm[i];
+	}
 
-				dqd[0] = -0.12 * sin(3 * t);
-				dqd[1] = -0.2 * sin(t);
-				dqd[2] = 0.4 * sin(2 * t);
+	const double dot_qr[no_joints] = { dot_qd[0] - alpha[0]*delta_qm[0], dot_qd[1] - alpha[1] * delta_qm[1], dot_qd[2] - alpha[2] * delta_qm[2]};
+	double y[no_joints][8];
+	y[0][0] = pow(cos(qm[1]), 2) * ddot_qm[0] + 2 * cos(qm[1]) * sin(qm[1]) * dot_qm[1] * dot_qm[2];
+	y[0][1] = cos(qm[1]) * cos(qm[1] + qm[2]) * ddot_qm[0] - (cos(qm[1]) * sin(qm[1] + qm[2]) * (dot_qm[1] + dot_qm[2]) + sin(qm[1]) * cos(qm[1] + qm[2]) * dot_qm[1]) * dot_qm[0];
+	y[0][2] = pow(sin(qm[1] + qm[2]), 2) * ddot_qm[0] + cos(qm[1] + qm[2]) * sin(qm[1] + qm[2]) * (dot_qm[1] + 2 * dot_qm[2]) * dot_qm[0] + sin(qm[1] + qm[2]) * cos(qm[1] + qm[2]) * dot_qm[1] * dot_qm[2];
+	y[0][3] = dot_qm[0];
+	y[0][4] = 0.0; y[0][5] = 0.0; y[0][6] = 0.0; y[0][7] = 0.0;
+	
+	y[1][0] = ddot_qm[1] + cos(qm[1]) * sin(qm[1]) * pow(dot_qm[0], 2);
+	y[1][1] = 2 * cos(qm[2]) * ddot_qm[1] + cos(qm[2]) * ddot_qm[2] + (sin(qm[1]) * cos(qm[1] + qm[2]) + cos(qm[1]) * sin(qm[1] + qm[2])) * pow(dot_qm[0], 2) / 2 - 2 * sin(qm[2]) * dot_qm[1] * dot_qm[2] - sin(qm[2]) * pow(dot_qm[2], 2);
+	y[1][2] = ddot_qm[1] + ddot_qm[2] - sin(qm[1] + qm[2]) * cos(qm[1] + qm[2]) * pow(dot_qm[0], 2);
+	y[1][3] = 0.0;
+	y[1][4] = dot_qm[1];
+	y[1][5] = 0.0;
+	y[1][6] = 9.81 * cos(qm[1]);
+	y[1][7] = 9.81 * cos(qm[1] + qm[2]);
+	
+	y[2][0] = 0.0;
+	y[2][1] = cos(qm[1]) * ddot_qm[1] + cos(qm[1]) * sin(qm[1] + qm[2]) * pow(dot_qm[0], 2) / 2 + sin(qm[2]) * pow(dot_qm[1], 2);
+	y[2][2] = ddot_qm[1] + ddot_qm[2] - cos(qm[1] + qm[2]) * sin(qm[1] + qm[2]) * pow(dot_qm[0], 2);
+	y[2][3] = 0.0; y[2][4] = 0.0;
+	y[2][5] = dot_qm[2];;
+	y[2][6] = 0.0;
+	y[2][7] =9.81*cos(qm[1] + qm[2]);
+	
+	double result[8][3] = { 0 };
+	for (int i = 0; i < 8; ++i) {           // Rows of p_zero
+		for (int j = 0; j < 3; ++j) {       // Columns of y^T (i.e., rows of y)
+			result[i][j] = 0.0;
+			for (int k = 0; k < 8; ++k) {   // Columns of p_zero / rows of y^T
+				result[i][j] += -1*p_zero[i][k] * y[j][k];
+			}
+		}
+	}
 
-				for (int i = 0; i < no_joints; i++) {
-								dqm[i] = (qm[i] - qm_1[i]) * sample_time;
-								e_pos[i] = qm[i] - qd[i];
-								dote_pos[i] = vel[i] - dqd[i];
-								sq[i] = dote_pos[i] + k1[i] * HelperFunctions::Sign(e_pos[i]) * (pow((abs(e_pos[i])), alpha));
-								dot_qr[i] = dqd[i] - k1[i] * HelperFunctions::Sign(e_pos[i]) * pow((abs(e_pos[i])), alpha) - k2[i] * sigma[i];
-								s[i] = dqm[i] - dot_qr[i];
-								dot_sigma[i] = k3[i] * sq[i] + HelperFunctions::Sign(sq[i]);
-								sigma[i] += dot_sigma[i] * sample_time;
+	double a_hat[8];
+	for (int i = 0; i < 8; ++i) {
+		a_hat[i] = 0.0;
+		for (int j = 0; j < 3; ++j) {
+			a_hat[i] += result[i][j] * s[j];
+		}
+		a_hat[i] = a_hat[i] * sample_time; // Integrate the result
+	}
 
-								tau[i] = k4[i] * tanh(s[i]);
-				}
+	for (int i = 0; i < no_joints; ++i) {      // For each row of y
+		tau[i] = 0.0;
+		for (int j = 0; j < 8; ++j) {          // For each column of y / element of a_hat
+			tau[i] += y[i][j] * a_hat[j];
+		}
+		tau[i] -= kd_s[i]; // Subtract the kd_s term
+	}
+	
 
-				std::vector<std::vector<double>> tau_graph_data = { tau,
-								graph_trajectory(t, pi, qm, dote_pos, e_pos, qd, dqd, vel, dot_qr) };
-
-				return tau_graph_data;
+    std::copy_n(qm, no_joints, std::begin(qm_1));
+	std::vector<std::vector<double>> adaptive_tau_graph_data = { tau, 
+		graph_trajectory(t, pi, qm, delta_dot_qm, delta_qm, qd, dot_qd, dot_qm, dot_qr) };
+    return adaptive_tau_graph_data;
 }
 
-std::vector<double> controllers::graph_trajectory(const double t, const double pi, const double* qm, const double* dote_pos, 
-				const double* e_pos, const double* qd, const double* dqd, const double* vel, const double* dot_qr)
+std::vector<double> controllers::graph_trajectory(const double t, const double pi, const double* qm, const double* dot_delta_pos, 
+				const double* delta_pos, const double* qd, const double* dot_qd, const double* dot_qm, const double* dot_qr)
 {
-				std::vector<double> graph_data(25);
+	std::vector<double> graph_data(25);
 
-				graph_data[0] = t;
-				graph_data[1] = qm[0] * 180.0 / pi;
-				graph_data[2] = qm[1] * 180.0 / pi;
-				graph_data[3] = qm[2] * 180.0 / pi;
-				graph_data[4] = dote_pos[0] * 180.0 / pi;
-				graph_data[5] = dote_pos[1] * 180.0 / pi;
-				graph_data[6] = dote_pos[2] * 180.0 / pi;
-				graph_data[7] = e_pos[0] * 180.0 / pi;
-				graph_data[8] = e_pos[1] * 180.0 / pi;
-				graph_data[9] = e_pos[2] * 180.0 / pi;
-				graph_data[10] = qd[0] * 180.0 / pi;
-				graph_data[11] = qd[1] * 180.0 / pi;
-				graph_data[12] = qd[2] * 180.0 / pi;
-				graph_data[13] = abs(tau[0]);
-				graph_data[14] = abs(tau[1]);
-				graph_data[15] = abs(tau[2]);
-				graph_data[16] = dqd[0] * 180.0 / pi;
-				graph_data[17] = dqd[1] * 180.0 / pi;
-				graph_data[18] = dqd[2] * 180.0 / pi;
-				graph_data[19] = vel[0] * 180.0 / pi;
-				graph_data[20] = vel[1] * 180.0 / pi;
-				graph_data[21] = vel[2] * 180.0 / pi;
-				graph_data[22] = dot_qr[0];
-				graph_data[23] = dot_qr[1];
-				graph_data[24] = dot_qr[2];
+	graph_data[0] = t;
+	graph_data[1] = qm[0] * 180.0 / pi;
+	graph_data[2] = qm[1] * 180.0 / pi;
+	graph_data[3] = qm[2] * 180.0 / pi;
+	graph_data[4] = dot_delta_pos[0] * 180.0 / pi;
+	graph_data[5] = dot_delta_pos[1] * 180.0 / pi;
+	graph_data[6] = dot_delta_pos[2] * 180.0 / pi;
+	graph_data[7] = delta_pos[0] * 180.0 / pi;
+	graph_data[8] = delta_pos[1] * 180.0 / pi;
+	graph_data[9] = delta_pos[2] * 180.0 / pi;
+	graph_data[10] = qd[0] * 180.0 / pi;
+	graph_data[11] = qd[1] * 180.0 / pi;
+	graph_data[12] = qd[2] * 180.0 / pi;
+	graph_data[13] = abs(tau[0]);
+	graph_data[14] = abs(tau[1]);
+	graph_data[15] = abs(tau[2]);
+	graph_data[16] = dot_qd[0] * 180.0 / pi;
+	graph_data[17] = dot_qd[1] * 180.0 / pi;
+	graph_data[18] = dot_qd[2] * 180.0 / pi;
+	graph_data[19] = dot_qm[0] * 180.0 / pi;
+	graph_data[20] = dot_qm[1] * 180.0 / pi;
+	graph_data[21] = dot_qm[2] * 180.0 / pi;
+	graph_data[22] = dot_qr[0];
+	graph_data[23] = dot_qr[1];
+	graph_data[24] = dot_qr[2];
 
-				return graph_data;
+	return graph_data;
 }
